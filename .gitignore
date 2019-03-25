@@ -1,0 +1,13 @@
+secrets.txt
+
+*.webm
+secrets.txt
+
+src/config/firebase.json
+
+node_modules
+dist
+dist2
+extension
+
+src/shared/domains.csv
