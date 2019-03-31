@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   processedUrls: 'processedUrls',
   allUrls: 'allUrls',
   activeUrl: 'activeUrl',
+  user: 'user',
 }
 
 export const MESSAGE_KEYS = {

@@ -60,7 +60,7 @@ module.exports = {
           ...JSON.parse(content.toString())
         }, null, '\t'))
       }
-    }]),
+    }], { copyUnmodified: true }),
     new CopyWebpackPlugin([
       {
         from:'src/img',
@@ -70,7 +70,7 @@ module.exports = {
         from:'src/styles',
         to: 'styles'
       },
-    ]), 
+    ], { copyUnmodified: true }), 
     new HtmlWebpackPlugin({
       template: path.join(__dirname, 'src', 'popup-page', 'index.html'),
       filename: 'popup.html',
@@ -81,6 +81,11 @@ module.exports = {
       filename: 'background.html',
       chunks: ['background-script']
     }),
-  ]
+  ],
+  watch: true,
+  watchOptions: {
+    aggregateTimeout: 300,
+    poll: 1000
+  },
 }
 

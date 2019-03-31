@@ -137,6 +137,18 @@ export async function getActiveUrl() {
   })
 }
 
+export async function setUserInStorage(user) {
+  return setInStorage({
+    [STORAGE_KEYS.user]: user,
+  })
+}
+
+export async function getUserFromStorage() {
+  return getFromStorage({
+    key: STORAGE_KEYS.user,
+  })
+}
+
 export async function clearProcessedUrls() {
   const [processedUrls, allUrls] = await Promise.all([
     getFromStorage({

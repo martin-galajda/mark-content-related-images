@@ -2,6 +2,8 @@ import '@babel/polyfill'
 import React, { } from 'react'
 import ReactDOM from 'react-dom'
 import * as storage from 'shared/storage'
+import * as firestore from 'shared/firestore'
+import * as urlService from 'shared/services/url-service'
 import styled from 'styled-components'
 import { IDS, STORAGE_KEYS, DEFAULT_STORAGE_VALUES, MESSAGE_KEYS } from 'shared/constants'
 import * as auth from 'shared/auth'
@@ -29,22 +31,23 @@ class PopupPageComponent extends React.Component {
   }
 
   async init() {
-    const [stateInStorage, userCredentials] = await Promise.all([
+    const [stateInStorage, user] = await Promise.all([
       storage.getStateFromStorage(),
       auth.getUserCredentials(),
     ])
 
     console.log('Reinit')
-    console.log({ userCredentials })
+    console.log({ user })
 
     this.setState({
       ...stateInStorage,
-      profile: userCredentials ? userCredentials.additionalUserInfo.profile : null,
+      profile: user ? user.profile : null,
+      user,
       loading: false,
     })
   }
 
-  async loadStateFromStorage() {
+  loadStateFromStorage = async () => {
     const [stateInStorage] = await Promise.all([
       storage.getStateFromStorage(),
     ])
@@ -55,7 +58,7 @@ class PopupPageComponent extends React.Component {
     })
   }
   
-  async onStopWorking() {
+  onStopWorking = async () => {
     await storage.setExtensionIsActive(false)
     await this.loadStateFromStorage()
 
@@ -69,65 +72,56 @@ class PopupPageComponent extends React.Component {
     })  
   }
 
-  async onSignOut() {
+  onSignOut = async () => {
     this.setState({
       loading: true,
+      profile: null,
     })
     await auth.signOut()
     await this.init()
   }
 
-  async onSignIn() {
-    const userCredentials = await auth.signIn()
+  onSignIn = async () => {
+    const user = await auth.signIn()
+
+    console.log({ user })
 
     this.setState({
-      profile: userCredentials ? userCredentials.additionalUserInfo.profile : null,
+      profile: user ? user.profile : null,
+      user,
       loading: false,
     })
   }
 
-  async onProceedToNextPage() {
-    const highlightedElements = await storage.getHighlightedElements()
-    const activeUrl = await storage.getActiveUrl(newURL)
-    await storage.saveHighlightedElements({
-      url: activeUrl,
-      highlightedElements,
-    })
-
-    await storage.clearHighlightedElements()
-    await storage.addProcessedUrl(activeUrl)
-
-    const allUrlsInStorage = await storage.getAllUrls()
-    var newURL = allUrlsInStorage[0]
-    
-    console.log({ newURL })
-    chrome.tabs.query({
-      active: true,
-      currentWindow: true,
-    }, (tabs) => {
-      console.log(tabs)
-      chrome.tabs.update(tabs[0].id, {
-        url: newURL,
-      }, (tab) => {
-        console.log({ tab })
-      })
-    })
+  onProceedToNextPage = async () => {
+    await urlService.markUrlAsProcessed(this.state.user)
+    await urlService.goToNextPage(this.state.user)
   }
   
-  async onResetAndStartOver() {
+  onResetAndStartOver = async () => {
     await storage.clearHighlightedElements()
-    await storage.clearProcessedUrls()
+    const newSessionData = await firestore.startNewWorkSession(this.state.user)
+
+    const updatedUser = {
+      ...this.state.user,
+      session: newSessionData,
+    }
+
+    this.setState({
+      user: updatedUser,
+    })
+
+    await storage.setUserInStorage(updatedUser)
     await storage.setExtensionIsActive(false)
   }
   
-  async onStartWorking() {
+  onStartWorking = async () => {
     await storage.setExtensionIsActive(true)
-    const allUrlsInStorage = await storage.getAllUrls()
-    var newURL = allUrlsInStorage[0]
+    const nextUserUrls = await urlService.getUserUrlsForProcessing(this.state.user)
+    var newURL = nextUserUrls[0]
 
     await storage.setActiveUrl(newURL)
     chrome.tabs.create({ url: newURL })
-
     await this.loadStateFromStorage()
   }
 
@@ -144,14 +138,14 @@ class PopupPageComponent extends React.Component {
         ? <AuthenticatedPage
             profile={this.state.profile}
             isExtensionActive={this.state[STORAGE_KEYS.extensionIsActive]}
-            onStartWorking={this.onStartWorking.bind(this)}
-            onStopWorking={this.onStopWorking.bind(this)}
-            onProceedToNextPage={this.onProceedToNextPage.bind(this)}
-            onResetAndStartOver={this.onResetAndStartOver.bind(this)}
-            onSignOut={this.onSignOut.bind(this)}
+            onStartWorking={this.onStartWorking}
+            onStopWorking={this.onStopWorking}
+            onProceedToNextPage={this.onProceedToNextPage}
+            onResetAndStartOver={this.onResetAndStartOver}
+            onSignOut={this.onSignOut}
             />
         : <SignInPage
-            onSignIn={this.onSignIn.bind(this)}
+            onSignIn={this.onSignIn}
           />
       }
     </PageContainer>)

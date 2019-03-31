@@ -1,6 +1,9 @@
 import '@babel/polyfill'
 import * as storage from 'shared/storage.js'
-import { MESSAGE_KEYS } from 'shared/constants';
+import { MESSAGE_KEYS } from 'shared/constants'
+import ReactDOM from 'react-dom'
+import { BottomPageMenu } from './bottom-page-menu'
+import React from 'react'
 
 const highlighted = {}
 let currentModifiedElements = []
@@ -10,7 +13,6 @@ const highlightHtmlElement = (highlightedElements, imgHtmlElement) => {
   // console.log({ imgHtmlElement })
 
   const elemIdentifier = imgHtmlElement.getAttribute('src')
-
 
   if (!highlighted[elemIdentifier]) {
     highlighted[elemIdentifier] = true
@@ -52,6 +54,10 @@ function setupContentScript() {
   console.log({ markup })
   // alert(markup);
 
+  const reactAppRoot = document.createElement('div')
+  document.documentElement.appendChild(reactAppRoot)
+  ReactDOM.render(<BottomPageMenu />, reactAppRoot)
+
   highlightTimer = setInterval(setupHighlightingElements, 1000)
 }
 
@@ -65,17 +71,6 @@ async function setupHighlightingElements() {
   }
 }
 
-function stopWorking() {
-  for (const elem of currentModifiedElements) {
-    restoreHtmlElement(elem)
-  }
-  currentModifiedElements = []
-  if (highlightTimer) {
-    clearInterval(highlightTimer)
-    highlightTimer = null  
-  }
-}
-
 async function init() {
   console.log('Init content script')
   const isActive = await storage.getExtensionIsActive()
@@ -84,7 +79,6 @@ async function init() {
     setupContentScript()
   }
 }
-
 
 function getUniqueKeyForNode (targetNode) {
   const pieces = ['doc']

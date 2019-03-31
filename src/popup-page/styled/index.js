@@ -8,7 +8,7 @@ export const MenuButton = styled.button`
 
   background: none;
   cursor: pointer;
-  border-color: none;
+  border-color: #000;
   color: #333;
 
   &:hover {
@@ -27,6 +27,7 @@ export const Menu = styled.div`
 
 export const PageContainer = styled.div`
   max-height: 200px;
+  height: 200px;
   width: 260px;
 `
 
