@@ -74,7 +74,6 @@ export const startNewWorkSession = async (user) => {
     throw new Error('User was expected to have some work session when starting new!')
   }
 
-
   const userCurrentSessionData = userSession.data()
   const activeWorkSessionId = userCurrentSessionData.activeWorkSessionId
   const newActiveWorkSessionId = activeWorkSessionId + 1
@@ -84,12 +83,17 @@ export const startNewWorkSession = async (user) => {
     activeWorkSessionId: newActiveWorkSessionId,
   }
 
-  const newUserSession = await firebase.firestore()
+  const userWorkSessionDoc = await firebase.firestore()
     .collection(COLLECTION_KEYS.workSessions)
     .doc(user.profile.email)
+
+  await userWorkSessionDoc
     .set(newSessionData)
 
-  return newUserSession.data()
+  const newUserSessionData = await userWorkSessionDoc
+    .get()
+
+  return newUserSessionData.data()
 }
 
 export const getProcessedUrls = async (user) => {
@@ -101,39 +105,17 @@ export const getProcessedUrls = async (user) => {
     .collection(`session-${user.session.activeWorkSessionId}`)
     .get()
 
-  if (!userProcessedUrls.exists) {
+  if (userProcessedUrls.empty) {
     return []
   }
 
-  const data = userProcessedUrls.data()
+  const processedUrlDocuments = userProcessedUrls.docs
 
-  return Object.keys(data).map(urlKey => {
-    return data[urlKey].url
+  return processedUrlDocuments.map(doc => {
+    return doc.data().url
   })
 }
 
-// export const getWorkSession = async (userProfile) => {
-//   init()
-//   const userSession = await firebase
-//     .firestore()
-//     .collection(COLLECTION_KEYS.workSessions)
-//     .doc(userProfile.email)
-//     .get()
-
-//   if (userSession) {
-//     return userSession
-//   }
-
-//   const newUserSession = await firebase.firestore()
-//     .collection(COLLECTION_KEYS.workSessions)
-//     .doc(userProfile.email)
-//     .set({
-//       ids: [0],
-//       activeSessionId: 0,
-//     })
-
-//   return newUserSession
-// }
 
 export const saveProcessedUrlData = async (processedUrl, processedUrlData, user) => {
   init()

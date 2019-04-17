@@ -1,56 +1,39 @@
 import * as storage from 'shared/storage'
 import * as firestore from 'shared/firestore'
+import * as chromeService  from 'shared/services/chrome-service'
+import * as auth from 'shared/auth'
+import * as utils from 'shared/utils'
 
 export const getUserUrlsForProcessing = async user => {
   const [allUrls, processedUrls] = await Promise.all([
     storage.getAllUrls(),
-    firestore.getProcessedUrls(user)
+    firestore.getProcessedUrls(user),
   ])
 
-  const userUrls = allUrls.filter(url => !processedUrls.some(processedUrl => processedUrl === url))
+  const userUrls = allUrls.filter(url => !processedUrls.some(processedUrl => utils.areUrlsSame(processedUrl, url)))
 
   return userUrls
 }
 
-export const markUrlAsProcessed = async (user) => {
-  const highlightedElements = await storage.getHighlightedElements()
-  const activeUrl = await storage.getActiveUrl()
-  await storage.clearHighlightedElements()
-  await firestore.saveProcessedUrlData(activeUrl, {
-    url: activeUrl,
-    highlightedElements,
-  }, user)
-  const nexUserUrls = await getUserUrlsForProcessing(user)
-  var newURL = nexUserUrls[0]
-  
-  console.log({ newURL })
-  chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-  }, (tabs) => {
-    console.log(tabs)
-    chrome.tabs.update(tabs[0].id, {
-      url: newURL,
-    }, (tab) => {
-      console.log({ tab })
-    })
-  })
+export const getNextUserWorkSessionUrl = async user => {
+  const [allUrls, processedUrls] = await Promise.all([
+    storage.getAllUrls(),
+    firestore.getProcessedUrls(user),
+  ])
+
+  const userUrls = allUrls.filter(url => !processedUrls.some(processedUrl => utils.areUrlsSame(processedUrl, url)))
+
+  return userUrls.length ? userUrls[0]: ''
 }
 
-export const goToNextPage = async (user) => {
-  const nexUserUrls = await urlService.getUserUrlsForProcessing(user)
-  var newURL = nexUserUrls[0]
-  
-  console.log({ newURL })
-  chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-  }, (tabs) => {
-    console.log(tabs)
-    chrome.tabs.update(tabs[0].id, {
-      url: newURL,
-    }, (tab) => {
-      console.log({ tab })
-    })
-  })
+
+export const goToNextPage = async () => {
+  const user = await auth.getUserCredentials()
+  const nextUserUrl = await getNextUserWorkSessionUrl(user)
+
+  await storage.setActiveUrl(nextUserUrl)
+
+  if (nextUserUrl) {
+    await chromeService.updateCurrentTabURL(nextUserUrl)  
+  }
 }

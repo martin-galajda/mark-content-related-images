@@ -2,8 +2,12 @@
   "name": "download-relevant-images-extension",
   "version": "1.0.0",
   "description": "Extension for downloading relevant images.",
-  "author": "",
+  "author": "Martin Galajda <galajda.mato@gmail.com>",
   "license": "ISC",
+  "scripts": {
+    "webpack": "webpack",
+    "webpack:watch": "webpack --watch"
+  },
   "devDependencies": {
     "@babel/core": "^7.4.0",
     "@babel/plugin-proposal-class-properties": "^7.4.0",
@@ -25,6 +29,7 @@
     "@babel/polyfill": "^7.4.0",
     "@babel/preset-react": "^7.0.0",
     "firebase": "^5.9.1",
+    "ramda": "^0.26.1",
     "react": "^16.8.5",
     "react-dom": "^16.8.5",
     "styled-components": "^4.2.0"

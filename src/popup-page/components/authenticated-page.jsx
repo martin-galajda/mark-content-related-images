@@ -1,5 +1,5 @@
 import React from 'react'
-import { BadgeContainer, BadgeImg, Menu, MenuButton, BadgeText } from '../styled'
+import { BadgeContainer, BadgeImg, Menu, MenuButton, BadgeText, LineItem } from '../styled'
 
 export class AuthenticatedPage extends React.Component {
   getButtons() {
@@ -33,6 +33,18 @@ export class AuthenticatedPage extends React.Component {
         </BadgeContainer>
         <Menu>
           {this.getButtons()}
+          <LineItem>
+            Current URL: {props.activeUrl}
+          </LineItem>
+          <LineItem>
+            Active work session ID: {props.session.activeWorkSessionId}
+          </LineItem>
+          <LineItem>
+            Processed {props.processedUrls.length} URL-s out of {props.allUrls.length}.
+          </LineItem>
+          <LineItem>
+            {JSON.stringify(props.cState, null, '\t')}
+          </LineItem>
         </Menu>
       </Menu>
     )

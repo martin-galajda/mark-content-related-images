@@ -54,3 +54,7 @@ export const BadgeText = styled.div`
   vertical-align: middle;
   line-height: 50px;
 `
+
+export const LineItem = styled.div`
+  padding: 5px;
+`

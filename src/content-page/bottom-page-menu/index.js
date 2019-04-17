@@ -1,6 +1,10 @@
 import React from 'react'
 import styled from 'styled-components'
 
+import { MESSAGE_KEYS } from 'shared/constants'
+import * as chromeService from 'shared/services/chrome-service'
+import { Loader } from 'shared/components/loader'
+
 const MenuWrapper = styled.div`
   height: 10% !important; 
   width: 100% !important;
@@ -34,14 +38,49 @@ padding: 5px;
 font-size: 16px;
 padding-left: 8px;
 padding-right: 8px;
+background: white;
 `
 
 export class BottomPageMenu extends React.Component {
 
+  state = {
+    loading: false,
+  }
+
+  onGoToNextPage = async () => {
+    this.setState({
+      loading: true,
+    })
+
+    try {
+      const response = await chromeService.sendMessage({
+        messageKey: MESSAGE_KEYS.onGoToNextPage,
+        data: {
+          html: String(document.documentElement.innerHTML),
+        }
+      })
+    } catch (err) {
+      console.error({ err })
+    }
+
+    this.setState({
+      loading: false,
+    })
+  }
+
   render() {
+    if (this.state.loading) {
+      return <MenuWrapper>
+        <GoToNextPageBtnWrapper>
+          <Loader />
+        </GoToNextPageBtnWrapper>
+      </MenuWrapper>
+    }
+
+
     return <MenuWrapper>
       <GoToNextPageBtnWrapper>
-        <GoToNextPageBtn>
+        <GoToNextPageBtn onClick={this.onGoToNextPage}>
           Save marked images and proceed to next page
         </GoToNextPageBtn>
       </GoToNextPageBtnWrapper>

@@ -1,6 +1,13 @@
 import '@babel/polyfill'
+
 const domainsCsv  = require('shared/domains.csv')
-import * as storage from 'shared/storage.js'
+
+import * as storage from 'shared/storage'
+import * as urlService from 'shared/services/url-service'
+import * as annotationService from 'shared/services/annotation-service'
+import * as chromeService from 'shared/services/chrome-service'
+import { MESSAGE_KEYS } from 'shared/constants'
+
 
 chrome.runtime.onInstalled.addListener(async function() {
   console.log({ domainsCsv })
@@ -27,4 +34,15 @@ chrome.declarativeContent.onPageChanged.removeRules(undefined, function() {
       new chrome.declarativeContent.ShowPageAction(),
     ]
   }])
+})
+
+
+chromeService.listenForMessage({
+  messageKey: MESSAGE_KEYS.onGoToNextPage,
+  callback: async (request, sender, sendResponse) => {
+    await annotationService.saveAnnotatedUrl(request.data.html)
+    await urlService.goToNextPage()
+
+    sendResponse({ success: true })
+  }
 })

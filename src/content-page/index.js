@@ -1,18 +1,24 @@
 import '@babel/polyfill'
-import * as storage from 'shared/storage.js'
-import { MESSAGE_KEYS } from 'shared/constants'
-import ReactDOM from 'react-dom'
-import { BottomPageMenu } from './bottom-page-menu'
 import React from 'react'
+import ReactDOM from 'react-dom'
+import * as storage from 'shared/storage'
+import { MESSAGE_KEYS } from 'shared/constants'
+import { addProtocolToImgSrcIfMissing, areUrlsSame } from 'shared/utils'
+import { BottomPageMenu } from './bottom-page-menu'
+import { HTMLAttributeConstants } from './constants'
+import * as chromeService from 'shared/services/chrome-service'
 
 const highlighted = {}
 let currentModifiedElements = []
 let highlightTimer = null
 
-const highlightHtmlElement = (highlightedElements, imgHtmlElement) => {
+const highlightImgElement = (highlightedElements, imgHtmlElement) => {
   // console.log({ imgHtmlElement })
 
-  const elemIdentifier = imgHtmlElement.getAttribute('src')
+  const elemIdentifier = addProtocolToImgSrcIfMissing({
+    currentLocationProtocol: window.location.protocol,
+    url: imgHtmlElement.getAttribute('src'),
+  })
 
   if (!highlighted[elemIdentifier]) {
     highlighted[elemIdentifier] = true
@@ -26,34 +32,36 @@ const highlightHtmlElement = (highlightedElements, imgHtmlElement) => {
   }
 
   // console.log({ elemIdentifier })
-  const isHighlighted = highlightedElements.some(highlightedElement => highlightedElement === elemIdentifier)
+  const isHighlighted = Boolean(highlightedElements[elemIdentifier])
   imgHtmlElement.style.border = `5px solid ${isHighlighted ? 'green': 'red'}`
+
+  imgHtmlElement.setAttribute(HTMLAttributeConstants.DATA_ANNOTATION_PATH_FROM_ROOT, getPathFromDocRoot(imgHtmlElement))
+  imgHtmlElement.setAttribute(HTMLAttributeConstants.DATA_ANNOTATION_ID, elemIdentifier)
+
+  currentModifiedElements[elemIdentifier] = imgHtmlElement
 
   imgHtmlElement.parentNode.onclick = async e => {
     e.stopPropagation()
     e.preventDefault()
 
+    const elemPathToRoot = getPathFromDocRoot(imgHtmlElement)
+
     if (isHighlighted) {
       await storage.removeHighlightedElement(elemIdentifier)
+      imgHtmlElement.style.border = `5px solid red`
+
     } else {
-      await storage.addHighlightedElement(elemIdentifier)
+      await storage.addHighlightedElement(elemIdentifier, {
+        url: elemIdentifier,
+        elemPathToRoot,
+      })
+      imgHtmlElement.style.border = `5px solid green`
     }
   }
 }
 
-function restoreHtmlElement(imgHtmlElement) {
-  imgHtmlElement.style.width = imgHtmlElement.getAttribute('data-orig-width')
-  imgHtmlElement.style.height = imgHtmlElement.getAttribute('data-orig-height')
-  imgHtmlElement.style.border = imgHtmlElement.getAttribute('data-orig-border')
-  imgHtmlElement.onClick = () => {}
-}
 
 function setupContentScript() {
-  console.log('Setuping content script')
-  const markup = document.documentElement.innerHTML;
-  console.log({ markup })
-  // alert(markup);
-
   const reactAppRoot = document.createElement('div')
   document.documentElement.appendChild(reactAppRoot)
   ReactDOM.render(<BottomPageMenu />, reactAppRoot)
@@ -62,26 +70,51 @@ function setupContentScript() {
 }
 
 async function setupHighlightingElements() {
-  currentModifiedElements = []
   const highlightedElements = await storage.getHighlightedElements()
-  const elements = document.querySelectorAll( 'body img' );
+  const elements = document.querySelectorAll('body img')
+
   for (const elem of elements) {
-    highlightHtmlElement(highlightedElements, elem)
-    currentModifiedElements.push(elem)
+    highlightImgElement(highlightedElements, elem)
   }
 }
 
 async function init() {
-  console.log('Init content script')
-  const isActive = await storage.getExtensionIsActive()
+  const [isActive, activeURL] = await Promise.all([
+    storage.getExtensionIsActive(),
+    storage.getActiveUrl(),
+  ])
+  const currentURL = window.location.href
 
-  if (isActive) {
+  if (isActive && areUrlsSame(currentURL, activeURL)) {
     setupContentScript()
+
+    chromeService.listenForMessage({
+      messageKey: MESSAGE_KEYS.onStopWorking,
+      callback: () => {
+        if (Object.keys(currentModifiedElements).length) {
+          window.location.reload()
+        }
+      }
+    })
+
+    chromeService.listenForMessage({
+      messageKey: MESSAGE_KEYS.onGoToNextPageFromPopUp,
+      callback: async () => {
+        const response = await chromeService.sendMessage({
+          messageKey: MESSAGE_KEYS.onGoToNextPage,
+          data: {
+            html: String(document.documentElement.innerHTML),
+          }
+        })
+    
+        console.log({ response })
+      }
+    })
   }
 }
 
-function getUniqueKeyForNode (targetNode) {
-  const pieces = ['doc']
+function getPathFromDocRoot (targetNode) {
+  const pieces = []
   let node = targetNode
 
   while (node && node.parentNode) {
@@ -89,16 +122,12 @@ function getUniqueKeyForNode (targetNode) {
     node = node.parentNode
   }
 
-  return pieces.reverse().join('/')
-}
+  const pathFromRoot = pieces
+    .reverse()
+    .join('/')
 
-chrome.runtime.onMessage.addListener(
-  function(request, sender, sendResponse) {
-    if (request.messageKey === MESSAGE_KEYS.onStopWorking && currentModifiedElements.length) {
-      window.location.reload()
-    }
-  }
-)
+  return `doc/${pathFromRoot}`
+}
 
 init().then(() => {
   console.log('Content script initialized.')  
