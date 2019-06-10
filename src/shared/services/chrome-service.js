@@ -9,7 +9,7 @@ export const getCurrentTab = () => {
       }
 
       resolve(tabs[0])
-    })  
+    })
   })
 }
 
@@ -39,8 +39,8 @@ export const updateCurrentTabURL = async newURL => {
 
 
 export const sendMessage = async (messageData) => {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(messageData, async (response) => {
+  return await new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(messageData, (response) => {
       if (chrome.runtime.lastError) {
         reject(chrome.runtime.lastError)
       }
@@ -55,12 +55,11 @@ export const sendMessageToCurrentTab = async (messageData) => {
     const currentTab = await getCurrentTab()
 
     const answer = await new Promise((resolve, reject) => {
-      chrome.tabs.sendMessage(currentTab.id, messageData, async (response) => {
+      chrome.tabs.sendMessage(currentTab.id, messageData, (response) => {
         if (chrome.runtime.lastError) {
-          console.error({ err: chrome.runtime.lastError })
           reject(chrome.runtime.lastError)
         }
-
+  
         resolve(response)
       })
     })
@@ -73,9 +72,10 @@ export const sendMessageToCurrentTab = async (messageData) => {
 }
 
 export const listenForMessage = ({ messageKey, callback}) => {
-  chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.messageKey === messageKey) {
-      await callback(request, sender, sendResponse)
+      callback(request, sender, sendResponse)
+      return true
     }
-  })  
+  })
 }

@@ -11,6 +11,7 @@ export class SignInPage extends React.Component {
     return (
       <Menu>
         <MenuButton onClick={props.onSignIn}>Sign In</MenuButton>,
+        <MenuButton onClick={props.onClearBrowserCache}>Clear Browser Cache</MenuButton>,
       </Menu>
     )
   }

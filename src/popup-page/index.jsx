@@ -2,6 +2,7 @@ import '@babel/polyfill'
 import React, { } from 'react'
 import ReactDOM from 'react-dom'
 import * as storage from 'shared/storage'
+import * as browserCache from 'shared/cache/browser'
 import * as firestore from 'shared/firestore'
 import * as urlService from 'shared/services/url-service'
 import * as chromeService from 'shared/services/chrome-service'
@@ -23,6 +24,7 @@ class PopupPageComponent extends React.Component {
     [STORAGE_KEYS.highlightedElements]: DEFAULT_STORAGE_VALUES[STORAGE_KEYS.highlightedElements],
     loading: true,
     profile: null,
+    userUrlsForProcessing: null,
   }
 
   async componentDidMount() {
@@ -30,26 +32,38 @@ class PopupPageComponent extends React.Component {
   }
 
   async init() {
-    const [stateInStorage, user] = await Promise.all([
-      storage.getStateFromStorage(),
+    const [extensionIsActive, activeUrl, user] = await Promise.all([
+      storage.getExtensionIsActive(),
+      storage.getActiveUrl(),
       auth.getUserCredentials(),
     ])
 
+    let userUrlsForProcessing = null
+    if (user) {
+      userUrlsForProcessing = await urlService.getUserUrlsListForProcessing(user)
+
+      await browserCache.setActiveUrl(userUrlsForProcessing.getCurrentUrl())
+    }
+
     this.setState({
-      ...stateInStorage,
+      [STORAGE_KEYS.extensionIsActive]: extensionIsActive,
+      [STORAGE_KEYS.activeUrl]: activeUrl,
       profile: user ? user.profile : null,
       user,
+      userUrlsForProcessing,
       loading: false,
     })
   }
 
   loadStateFromStorage = async () => {
-    const [stateInStorage] = await Promise.all([
-      storage.getStateFromStorage(),
+    const [extensionIsActive, activeUrl] = await Promise.all([
+      storage.getExtensionIsActive(),
+      storage.getActiveUrl(),
     ])
 
     this.setState({
-      ...stateInStorage,
+      [STORAGE_KEYS.activeUrl]: activeUrl,
+      [STORAGE_KEYS.extensionIsActive]: extensionIsActive,
       loading: false,
     })
   }
@@ -58,14 +72,13 @@ class PopupPageComponent extends React.Component {
     await storage.setExtensionIsActive(false)
     await this.loadStateFromStorage()
 
-    chrome.tabs.query({ currentWindow: true, active: true }, function (tabs){
-      if (!chrome.runtime.lastError) {
-        const activeTab = tabs[0]
-        chrome.tabs.sendMessage(activeTab.id, {
-          messageKey: MESSAGE_KEYS.onStopWorking,
-        })  
-      }
-    })  
+    try {
+      await chromeService.sendMessageToCurrentTab({
+        messageKey: MESSAGE_KEYS.onStopWorking,
+      })
+    } catch (err) {
+      console.error({ err })
+    }
   }
 
   onSignOut = async () => {
@@ -73,6 +86,7 @@ class PopupPageComponent extends React.Component {
       loading: true,
       profile: null,
     })
+
     await auth.signOut()
     await this.init()
   }
@@ -112,7 +126,7 @@ class PopupPageComponent extends React.Component {
         session: newSessionData,
       }
         
-      await storage.clearProcessedUrls()
+      await browserCache.setProcessedUrls([])
       await storage.setUserInStorage(updatedUser)
       await urlService.goToNextPage()
       await this.init()
@@ -125,14 +139,35 @@ class PopupPageComponent extends React.Component {
   
   onStartWorking = async () => {
     await storage.setExtensionIsActive(true)
-    const nextUserUrls = await urlService.getUserUrlsForProcessing(this.state.user)
-    var newURL = nextUserUrls[0]
+    const newURL = await urlService
+      .getCurrentUserWorkSessionUrl(this.state.user)
 
-    await storage.setActiveUrl(newURL)
-    chrome.tabs.create({ url: newURL })
-    await this.loadStateFromStorage()
+    if (newURL) {
+      await browserCache.setActiveUrl(newURL)
+      chrome.tabs.create({ url: newURL })
+      await this.loadStateFromStorage()  
+    } else {
+      await browserCache.setActiveUrl(null)
+
+      this.setState({
+        doneAnnotating: true,
+      })  
+    }
   }
 
+  onClearBrowserCache = async () => {
+    this.setState({
+      loading: true,
+    })
+    await browserCache.invalidateAllItems()
+    this.setState({
+      loading: false,
+    })
+  }
+
+  onGoToActiveUrlInNewTab = () => {
+    chrome.tabs.create({ url: this.state[STORAGE_KEYS.activeUrl] })
+  }
   
   render() {
     if (this.state.loading) {
@@ -146,22 +181,27 @@ class PopupPageComponent extends React.Component {
     return (<PageContainer>
       {this.state.profile
         ? <AuthenticatedPage
-            profile={this.state.profile}
-            isExtensionActive={this.state[STORAGE_KEYS.extensionIsActive]}
-            onStartWorking={this.onStartWorking}
-            onStopWorking={this.onStopWorking}
-            onProceedToNextPage={this.onProceedToNextPage}
-            onResetAndStartOver={this.onResetAndStartOver}
-            onSignOut={this.onSignOut}
-            activeUrl={this.state[STORAGE_KEYS.activeUrl]}
-            session={this.state.user.session}
-            processedUrls={this.state[STORAGE_KEYS.processedUrls]}
-            allUrls={this.state[STORAGE_KEYS.allUrls]}
-            cState={this.state}
-            />
+          profile={this.state.profile}
+          isExtensionActive={this.state[STORAGE_KEYS.extensionIsActive]}
+
+          activeUrl={this.state[STORAGE_KEYS.activeUrl]}
+          session={this.state.user.session}
+          userUrlsForProcessing={this.state.userUrlsForProcessing}
+
+          onStartWorking={this.onStartWorking}
+          onStopWorking={this.onStopWorking}
+          onProceedToNextPage={this.onProceedToNextPage}
+          onResetAndStartOver={this.onResetAndStartOver}
+          onSignOut={this.onSignOut}
+          onClearBrowserCache={this.onClearBrowserCache}
+          onGoToActiveUrlInNewTab={this.onGoToActiveUrlInNewTab}
+
+          cState={this.state}
+        />
         : <SignInPage
-            onSignIn={this.onSignIn}
-          />
+          onSignIn={this.onSignIn}
+          onClearBrowserCache={this.onClearBrowserCache}
+        />
       }
     </PageContainer>)
   }

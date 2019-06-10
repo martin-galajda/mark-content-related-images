@@ -3,7 +3,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin')
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 const CleanWebpackPlugin = require('clean-webpack-plugin')
 
-var fileExtensions = ['jpg', 'jpeg', 'png', 'gif', 'eot', 'otf', 'svg', 'ttf', 'woff', 'woff2']
+var fileExtensions = ['jpg', 'jpeg', 'png', 'gif', 'eot', 'otf', 'ttf', 'woff', 'woff2']
 
 module.exports = {
   entry: {
@@ -46,8 +46,29 @@ module.exports = {
       },
       {
         test: /\.jsx?$/,
-        loader: 'babel-loader'
+        loader: 'babel-loader',
+        options: {
+          plugins: [
+            [
+              require.resolve('babel-plugin-named-asset-import'),
+              {
+                loaderMap: {
+                  svg: {
+                    ReactComponent: '@svgr/webpack?-svgo,+ref![path]',
+                  },
+                },
+              },
+            ],
+          ],
+        }
+      },
+
+      {
+        test: /\.svg$/,
+        loader: 'svg-inline-loader?classPrefix'
       }
+
+      
     ]
   },
   plugins: [

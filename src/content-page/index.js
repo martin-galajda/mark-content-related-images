@@ -3,70 +3,35 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import * as storage from 'shared/storage'
 import { MESSAGE_KEYS } from 'shared/constants'
-import { addProtocolToImgSrcIfMissing, areUrlsSame } from 'shared/utils'
+import { areUrlsSame } from 'shared/utils'
 import { BottomPageMenu } from './bottom-page-menu'
-import { HTMLAttributeConstants } from './constants'
 import * as chromeService from 'shared/services/chrome-service'
+import * as highlightingService from './services/highlighting-service'
 
-const highlighted = {}
-let currentModifiedElements = []
-let highlightTimer = null
-
-const highlightImgElement = (highlightedElements, imgHtmlElement) => {
-  // console.log({ imgHtmlElement })
-
-  const elemIdentifier = addProtocolToImgSrcIfMissing({
-    currentLocationProtocol: window.location.protocol,
-    url: imgHtmlElement.getAttribute('src'),
-  })
-
-  if (!highlighted[elemIdentifier]) {
-    highlighted[elemIdentifier] = true
-
-    imgHtmlElement.setAttribute('data-orig-width', imgHtmlElement.style.width)
-    imgHtmlElement.setAttribute('data-orig-height', imgHtmlElement.style.height)
-    imgHtmlElement.setAttribute('data-orig-border', imgHtmlElement.style.border)
-
-    imgHtmlElement.style.width = `${imgHtmlElement.clientWidth * 0.9}px`
-    imgHtmlElement.style.height = `${imgHtmlElement.clientHeight * 0.9}px`
-  }
-
-  // console.log({ elemIdentifier })
-  const isHighlighted = Boolean(highlightedElements[elemIdentifier])
-  imgHtmlElement.style.border = `5px solid ${isHighlighted ? 'green': 'red'}`
-
-  imgHtmlElement.setAttribute(HTMLAttributeConstants.DATA_ANNOTATION_PATH_FROM_ROOT, getPathFromDocRoot(imgHtmlElement))
-  imgHtmlElement.setAttribute(HTMLAttributeConstants.DATA_ANNOTATION_ID, elemIdentifier)
-
-  currentModifiedElements[elemIdentifier] = imgHtmlElement
-
-  imgHtmlElement.parentNode.onclick = async e => {
-    e.stopPropagation()
-    e.preventDefault()
-
-    const elemPathToRoot = getPathFromDocRoot(imgHtmlElement)
-
-    if (isHighlighted) {
-      await storage.removeHighlightedElement(elemIdentifier)
-      imgHtmlElement.style.border = `5px solid red`
-
-    } else {
-      await storage.addHighlightedElement(elemIdentifier, {
-        url: elemIdentifier,
-        elemPathToRoot,
-      })
-      imgHtmlElement.style.border = `5px solid green`
-    }
-  }
-}
-
-
-function setupContentScript() {
+/**
+ * 
+ * @param {Object} annotatedData 
+ */
+async function setupContentScript(annotatedData, { activeUrlHasNextAnnotated, activeUrlHasPrevAnnotated }) {
   const reactAppRoot = document.createElement('div')
   document.documentElement.appendChild(reactAppRoot)
-  ReactDOM.render(<BottomPageMenu />, reactAppRoot)
+  ReactDOM.render(<BottomPageMenu
+    activeUrlHasNextAnnotated={activeUrlHasNextAnnotated}
+    activeUrlHasPrevAnnotated={activeUrlHasPrevAnnotated}  
+  />, reactAppRoot)
 
-  highlightTimer = setInterval(setupHighlightingElements, 1000)
+  setInterval(setupHighlightingElements, 1000)
+
+  console.log({ annotatedData })
+  
+  if (annotatedData) {
+    const dataToRestore = annotatedData.data.annotatedElementsData
+    console.log({ dataToRestore })
+
+    await storage.setHighlightedElements(dataToRestore)
+  } else {
+    await storage.setHighlightedElements(null)
+  }
 }
 
 async function setupHighlightingElements() {
@@ -74,59 +39,51 @@ async function setupHighlightingElements() {
   const elements = document.querySelectorAll('body img')
 
   for (const elem of elements) {
-    highlightImgElement(highlightedElements, elem)
+    highlightingService.highlightImgElement(highlightedElements, elem)
   }
 }
 
 async function init() {
-  const [isActive, activeURL] = await Promise.all([
+  const [isActive] = await Promise.all([
     storage.getExtensionIsActive(),
-    storage.getActiveUrl(),
   ])
-  const currentURL = window.location.href
 
-  if (isActive && areUrlsSame(currentURL, activeURL)) {
-    setupContentScript()
+  if (isActive) {
+    chromeService.sendMessage({
+      messageKey: MESSAGE_KEYS.onContentScriptLoaded,
+      data: {}
+    }).then(response => {
+      const currentURL = window.location.href
+      const { activeUrl, activeUrlAnnotatedData, activeUrlHasNextAnnotated, activeUrlHasPrevAnnotated } = response
 
-    chromeService.listenForMessage({
-      messageKey: MESSAGE_KEYS.onStopWorking,
-      callback: () => {
-        if (Object.keys(currentModifiedElements).length) {
-          window.location.reload()
-        }
-      }
-    })
-
-    chromeService.listenForMessage({
-      messageKey: MESSAGE_KEYS.onGoToNextPageFromPopUp,
-      callback: async () => {
-        const response = await chromeService.sendMessage({
-          messageKey: MESSAGE_KEYS.onGoToNextPage,
-          data: {
-            html: String(document.documentElement.innerHTML),
-          }
+      if (areUrlsSame(currentURL, activeUrl)) {
+        setupContentScript(activeUrlAnnotatedData, { activeUrlHasNextAnnotated, activeUrlHasPrevAnnotated })
+    
+        chromeService.listenForMessage({
+          messageKey: MESSAGE_KEYS.onStopWorking,
+          callback: () => {
+            window.location.reload()
+          },
         })
     
-        console.log({ response })
+        chromeService.listenForMessage({
+          messageKey: MESSAGE_KEYS.onGoToNextPageFromPopUp,
+          callback: () => {
+            chromeService.sendMessage({
+              messageKey: MESSAGE_KEYS.onGoToNextPage,
+              data: {
+                html: String(document.documentElement.innerHTML),
+              }
+            }).then(() => {
+              // 
+            })
+          }
+        })
       }
     })
   }
-}
 
-function getPathFromDocRoot (targetNode) {
-  const pieces = []
-  let node = targetNode
 
-  while (node && node.parentNode) {
-    pieces.push(Array.prototype.indexOf.call(node.parentNode.childNodes, node))
-    node = node.parentNode
-  }
-
-  const pathFromRoot = pieces
-    .reverse()
-    .join('/')
-
-  return `doc/${pathFromRoot}`
 }
 
 init().then(() => {

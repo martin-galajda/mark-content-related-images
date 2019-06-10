@@ -1,16 +1,20 @@
-import { STORAGE_KEYS, DEFAULT_STORAGE_VALUES } from 'shared/constants'
-import * as R from 'ramda'
+import {
+  STORAGE_KEYS,
+  DEFAULT_STORAGE_VALUES,
+  PRIVATE_STORAGE_KEYS,
+  REMOVABLE_KEYS,
+} from 'shared/constants'
 
-async function getFromStorage({ key }) {
-  return new Promise(resolve => {
+export async function getFromStorage({ key }) {
+  return await new Promise(resolve => {
     chrome.storage.local.get([key], function(result) {
       resolve(result[key] !== undefined ? result[key] : DEFAULT_STORAGE_VALUES[key])
     })
   })
 }
 
-async function setInStorage(updates) {
-  return new Promise(resolve => {
+export async function setInStorage(updates) {
+  return await new Promise(resolve => {
     chrome.storage.local.set({
       ...updates,
     }, function() {
@@ -19,9 +23,22 @@ async function setInStorage(updates) {
   })
 }
 
+export async function clear() {
+  return await new Promise((resolve, reject) => {
+    chrome.storage.local.remove(REMOVABLE_KEYS, function() {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError)
+      }
+
+      resolve()
+    })
+  })
+}
+
 export async function getStateFromStorage() {
+  const allKeys = Object.values(STORAGE_KEYS).concat(Object.values(PRIVATE_STORAGE_KEYS))
   const localStorageState = await new Promise(resolve => {
-    chrome.storage.local.get(Object.values(STORAGE_KEYS), function(result) {
+    chrome.storage.local.get(allKeys, function(result) {
 
       Object.values(STORAGE_KEYS).forEach(storageKey => {
         result[storageKey] = result[storageKey] || DEFAULT_STORAGE_VALUES[storageKey]
@@ -65,6 +82,14 @@ export async function addHighlightedElement(elemIdentifier, highlightedElementDa
   console.log(`Added "${elemIdentifier}" to highlighted elements.`)
 }
 
+export async function setHighlightedElements(highlightedElementData) {
+  return await setInStorage({
+    [STORAGE_KEYS.highlightedElements]: {
+      ...highlightedElementData,
+    },
+  })
+}
+
 export async function getHighlightedElements() {
   const currentHighlightedElements = await getFromStorage({
     key: STORAGE_KEYS.highlightedElements,
@@ -82,13 +107,13 @@ export async function getExtensionIsActive() {
 }
 
 export async function setExtensionIsActive(isActive) {
-  return setInStorage({
+  return await setInStorage({
     [STORAGE_KEYS.extensionIsActive]: isActive,
   })
 }
 
 export async function getAllUrls() {
-  return getFromStorage({
+  return await getFromStorage({
     key: STORAGE_KEYS.allUrls, 
   })
 }
@@ -105,55 +130,89 @@ export async function clearHighlightedElements() {
   })
 }
 
-
-export async function addProcessedUrl(processedUrl) {
-  const oldProcessedUrls = await getFromStorage({
-    key: STORAGE_KEYS.processedUrls,
-  })
-
-  await setInStorage({
-    [STORAGE_KEYS.processedUrls]: R.uniq(oldProcessedUrls.concat([processedUrl])), 
-  })
-}
-
-export async function clearProcessedUrls() {
-  return setInStorage({
-    [STORAGE_KEYS.processedUrls]: [],
-  })
-}
-
 export async function setActiveUrl(activeUrl) {
-  await setInStorage({
+  await await setInStorage({
     [STORAGE_KEYS.activeUrl]: activeUrl,
   })
 }
 
 export async function getActiveUrl() {
-  return getFromStorage({
+  return await getFromStorage({
     key: STORAGE_KEYS.activeUrl,
   })
 }
 
 export async function setUserInStorage(user) {
-  return setInStorage({
+  return await setInStorage({
     [STORAGE_KEYS.user]: user,
   })
 }
 
 export async function getUserFromStorage() {
-  return getFromStorage({
+  return await getFromStorage({
     key: STORAGE_KEYS.user,
   })
 }
 
 export async function setAccessToken(token) {
-  return setInStorage({
+  return await setInStorage({
     [STORAGE_KEYS.accessToken]: token,
   })
 }
 
 export async function getAccessToken() {
-  return getFromStorage({
+  return await getFromStorage({
     key: STORAGE_KEYS.accessToken,
   })
+}
+
+export async function setProcessedUrlsCurrIdx(newCurrIdx) {
+  return await setInStorage({
+    [STORAGE_KEYS.processedUrlsListCurrIdx]: newCurrIdx,
+  })
+}
+
+export async function getProcessedUrlsCurrIdx() {
+  return await getFromStorage({
+    key: STORAGE_KEYS.processedUrlsListCurrIdx,
+  })
+}
+
+export async function setIsSignedIn(isSignedIn) {
+  return await setInStorage({
+    [STORAGE_KEYS.isSignedIn]: isSignedIn,
+  })
+}
+
+export async function getIsSignedIn() {
+  return await getFromStorage({ key: STORAGE_KEYS.isSignedIn })
+}
+
+export async function addCacheMetadataInfo(cacheElemIdentifier, metadata) {
+  const currentCacheMetadataInfo = await getFromStorage({
+    key: PRIVATE_STORAGE_KEYS.cacheMetadataInfo,
+  })
+
+  await setInStorage({
+    [PRIVATE_STORAGE_KEYS.cacheMetadataInfo]: {
+      ...currentCacheMetadataInfo,
+      [cacheElemIdentifier]: metadata,
+    },
+  })
+
+  console.log(`Updated cache metadata for "${cacheElemIdentifier}".`)
+}
+
+export async function getCacheMetadataInfo(cacheElemIdentifier) {
+  const currentCacheMetadataInfo = await getFromStorage({
+    key: PRIVATE_STORAGE_KEYS.cacheMetadataInfo,
+  })
+
+  console.log({ currentCacheMetadataInfo })
+
+  if (currentCacheMetadataInfo) {
+    return currentCacheMetadataInfo[cacheElemIdentifier]
+  } 
+
+  return null
 }

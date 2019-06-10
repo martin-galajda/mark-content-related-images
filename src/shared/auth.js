@@ -1,5 +1,6 @@
 import * as firestore from 'shared/firestore'
 import * as storage from 'shared/storage'
+import * as constants from 'shared/constants'
 
 export const getUser = async token => {
   const userInStorage = await storage.getUserFromStorage()
@@ -19,6 +20,7 @@ export const getUser = async token => {
 const clearUserInStorage = async () => {
   await storage.setUserInStorage(null)
   await storage.setAccessToken(null)
+  await storage.setIsSignedIn(false)
 }
 
 export const signIn = async () => {
@@ -29,8 +31,8 @@ export const signIn = async () => {
     console.error({ err })
   }
 
-  return new Promise(resolve => {
-    chrome.identity.getAuthToken({ 'interactive': true }, async function(token) {
+  return await new Promise(resolve => {
+    chrome.identity.getAuthToken({ 'interactive': true }, async function (token) {
       if (chrome.runtime.lastError || !token) {
         await clearUserInStorage()
         return resolve()
@@ -38,6 +40,7 @@ export const signIn = async () => {
       
       try {
         const user = await getUser(token)
+        await storage.setIsSignedIn(true)
         resolve(user)
       } catch (err) {
         console.error({ err })
@@ -47,7 +50,7 @@ export const signIn = async () => {
 }
 
 export const getUserCredentials = async () => {
-  return new Promise(resolve => {
+  return await new Promise(resolve => {
     try {
       chrome.identity.getAuthToken({ 'interactive': false }, async function(token) {
         if (chrome.runtime.lastError || !token) {
@@ -73,7 +76,7 @@ export const getUserCredentials = async () => {
 }
 
 export const signOut = async () => {
-  return new Promise((resolve) => {
+  return await new Promise((resolve) => {
     chrome.identity.getAuthToken({ 'interactive': false }, async function(token) {
       if (chrome.runtime.lastError) {
         await clearUserInStorage()
@@ -90,7 +93,7 @@ export const signOut = async () => {
             return resolve()
           }
     
-          const revokeTokenUrl = `https://accounts.google.com/o/oauth2/revoke?token=${token}`
+          const revokeTokenUrl = `${constants.GOOGLE_REVOKE_TOKEN_API_URL}?token=${token}`
           await window.fetch(revokeTokenUrl)
           await clearUserInStorage()
           resolve()

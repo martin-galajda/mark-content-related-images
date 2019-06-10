@@ -26,8 +26,8 @@ export const Menu = styled.div`
 `
 
 export const PageContainer = styled.div`
-  max-height: 200px;
-  height: 200px;
+  max-height: 400px;
+  height: 400px;
   width: 260px;
 `
 
@@ -57,4 +57,25 @@ export const BadgeText = styled.div`
 
 export const LineItem = styled.div`
   padding: 5px;
+`
+
+export const URLLineHeading = styled.div`
+font-size: 14px;
+padding-bottom: 5px;
+color: #666;
+font-family: sans-serif;
+`
+
+export const URLTag = styled.a`
+  color: blue;
+  cursor: pointer;
+`
+
+
+export const CurrentUrlContainer = styled.div`
+  padding: 5px;
+  border: 1px solid #ddd;
+  margin-top: 20px;
+  border-radius: 10px;
+  text-align: center;
 `
