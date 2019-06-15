@@ -18,7 +18,6 @@ export const saveAnnotatedUrl = async (html) => {
     storage.getActiveUrl(),
     urlService.getCurrentUserProcessedUrls(),
   ])
-
   const user = await auth.getUser(accessToken)
 
   await Promise.all([

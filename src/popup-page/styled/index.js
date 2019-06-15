@@ -8,27 +8,53 @@ export const MenuButton = styled.button`
 
   background: none;
   cursor: pointer;
-  border-color: #000;
-  color: #333;
+  color: #111;
+
+  border-bottom: 1px solid rgb(216,216,216);
+  border-left: 1px solid rgb(216,216,216);
+  border-right: 1px solid rgb(216,216,216);
+  border-bottom: 1px solid rgb(216,216,216);
+  
+  align-self: center;
+  width: 88%;
+
+  ${props => props.isFirst ? 'border-top: 1px solid rgb(216,216,216);' : 'border-top: none;'}
 
   &:hover {
     background: #eee;
+    color: #000;
   }
 `
 
 export const Menu = styled.div`
   margin-top: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 5px;
   display: flex;
   flex-direction: column;
-  margin-left: 5px;
-  margin-right: 5px;
+  height: 100%;
+`
+
+export const ButtonsMenu = styled.div`
+  margin-top: 10px;
+  margin-bottom: 5px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 `
 
 export const PageContainer = styled.div`
-  max-height: 400px;
-  height: 400px;
+  max-height: 600px;
+  min-height: 200px;
   width: 260px;
+
+  font-family: Montserrat;
+
+  button {
+    font-family: Montserrat;
+
+    font-variant: all-petite-caps;
+    font-size: 1.15em;
+  }
 `
 
 export const BadgeContainer = styled.div`
@@ -63,7 +89,7 @@ export const URLLineHeading = styled.div`
 font-size: 14px;
 padding-bottom: 5px;
 color: #666;
-font-family: sans-serif;
+font-family: Nunito;
 `
 
 export const URLTag = styled.a`
@@ -78,4 +104,18 @@ export const CurrentUrlContainer = styled.div`
   margin-top: 20px;
   border-radius: 10px;
   text-align: center;
+`
+
+export const MetadataConainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  margin-top: 30px;
+  align-self: center;
+  width: 88%;
+`
+export const ButtonsContainer = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 `

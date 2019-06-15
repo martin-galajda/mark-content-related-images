@@ -14,7 +14,7 @@ chrome.runtime.onInstalled.addListener(async function() {
   await storage.clear()
 
   const allUrls = await firestore.getAllUrls()
-  await browserCache.setAllUrls(allUrls)  
+  await browserCache.setAllUrls(allUrls)
 })
 
 chrome.declarativeContent.onPageChanged.removeRules(undefined, function() {
@@ -66,6 +66,9 @@ chromeService.listenForMessage({
       activeUrlAnnotatedData: userUrlsListForProcessing.getAnnotatedDataForUrl(userUrlsListForProcessing.getCurrentUrl()),
       activeUrlHasNextAnnotated: !userUrlsListForProcessing.isCurrentUrlLastNotAnnotated(),
       activeUrlHasPrevAnnotated: !userUrlsListForProcessing.isCurrentUrlFirstNotAnnotated(),
+      currentUrlsPosition: userUrlsListForProcessing.currIdx + 1,
+      processedUrlsCount: userUrlsListForProcessing.getProcessedUrlsLength(),
+      allUrlsCount: userUrlsListForProcessing.getAllUrlsLength(),
     }
 
     sendResponse(res)

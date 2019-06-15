@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Content related images",
   "description": "Extension for downloading content related images.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "Martin Galajda <galajda.mato@gmail.com>",
 
   "background": {
@@ -101,8 +101,7 @@
   },
 
   "key": "-----BEGIN PUBLIC KEY-----MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtO/4orY/7BQ/LGxGjYkabsBTe+6L+c1qXIvr3yX4oVjUWZS43bKXDsuq8ymPCPqrOMVNxzclRi2HVDPAt+pqqfExsk++jvbkqEXSSXltlVj1dQCDW//+N4044GkebEUHQI67A1XNZWc+gQ1cwqteF+fD4UWJEsbJZMf0tER63EyR3gCA+rxICWuin41GmpJOmxZJbxGvrLDfaK/f1nIfFuGeAD8gBmJDr/InLzJ1j8TXPSvbVsvPLRIxuKv/P6z/F67Hbam5MfMa/ZlXcMsZOMxNarpdxeeziMpx709SYy+/ADGrhGhac8F7QJKdVAIhqWfpydpaBn5f69kYYvMfGQIDAQAB-----END PUBLIC KEY-----",
-
-  "content_security_policy": "default-src 'self'; script-src 'self' 'unsafe-eval' https://www.gstatic.com/ https://*.firebaseio.com https://www.googleapis.com; connect-src https://firestore.googleapis.com https://www.googleapis.com https://accounts.google.com https://securetoken.googleapis.com/; style-src * 'unsafe-inline' 'self' blob:; img-src 'self' https://www.google.com https://lh3.googleusercontent.com data:;"
+  "content_security_policy": "default-src 'self'; script-src 'self' 'unsafe-eval' https://www.gstatic.com/ https://*.firebaseio.com https://www.googleapis.com; connect-src https://firestore.googleapis.com https://www.googleapis.com https://accounts.google.com https://securetoken.googleapis.com/; style-src * 'unsafe-inline' 'self' blob:; img-src 'self' https://www.google.com https://lh3.googleusercontent.com data:; font-src https://fonts.gstatic.com https://fonts.googleapis.com data:"
 
 }
  

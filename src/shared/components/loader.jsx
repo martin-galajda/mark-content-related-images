@@ -35,12 +35,14 @@ const SpinnerWrapper = styled.div`
 
 const Spinner = styled.div`
   ${props => `
-    width: ${260 * (props.spinnerSizeRatio || 1.0)}px !important;
-    height: ${200 * (props.spinnerSizeRatio || 1.0)}px !important;
-    -webkit-transform: translate(-${(100) * (props.spinnerSizeRatio || 1.0)}px, -${(100) * (props.spinnerSizeRatio || 1.0)}px) scale(1)
-      translate(${(100) * (props.spinnerSizeRatio || 1.0)}px, ${(100) * (props.spinnerSizeRatio || 1.0)}px);
-    transform: translate(-${(100) * (props.spinnerSizeRatio || 1.0)}px, -${(100) * (props.spinnerSizeRatio || 1.0)}px) scale(1) 
-      translate(${(100) * (props.spinnerSizeRatio || 1.0)}px, ${(100) * (props.spinnerSizeRatio || 1.0)}px);
+    ${props.transformSpinner ? `transform: ${props.transformSpinner}` : `
+      width: ${260 * (props.spinnerSizeRatio || 1.0)}px !important;
+      height: ${200 * (props.spinnerSizeRatio || 1.0)}px !important;
+      -webkit-transform: translate(-${(100) * (props.spinnerSizeRatio || 1.0)}px, -${(100) * (props.spinnerSizeRatio || 1.0)}px) scale(1)
+        translate(${(100) * (props.spinnerSizeRatio || 1.0)}px, ${(100) * (props.spinnerSizeRatio || 1.0)}px);
+      transform: translate(-${(100) * (props.spinnerSizeRatio || 1.0)}px, -${(100) * (props.spinnerSizeRatio || 1.0)}px) scale(1) 
+        translate(${(100) * (props.spinnerSizeRatio || 1.0)}px, ${(100) * (props.spinnerSizeRatio || 1.0)}px);
+    `}
   `}
 `
 

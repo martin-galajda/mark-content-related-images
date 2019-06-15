@@ -40,17 +40,16 @@ export class UserUrlsList {
     return this.currIdx === 0
   }
 
-
   getCurrentUrl() {
-    return this.allUrls[this.currIdx]
+    return this.allUrls[this.currIdx % this.allUrls.length]
   }
 
   getNextUrl() {
-    return this.allUrls[this.nextIdx]
+    return this.allUrls[this.nextIdx % this.allUrls.length]
   }
 
   getPrevUrl() {
-    return this.allUrls[this.prevIdx]
+    return this.allUrls[this.prevIdx % this.allUrls.length]
   }
 
   getMinNotAnnotatedIdx() {

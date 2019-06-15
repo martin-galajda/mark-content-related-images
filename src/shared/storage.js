@@ -64,8 +64,6 @@ export async function removeHighlightedElement(elemIdentifier) {
   await setInStorage({
     [STORAGE_KEYS.highlightedElements]: newHighlightedElements,
   })
-
-  console.log(`Removed "${elemIdentifier}" from highlighted elements.`)
 }
 
 export async function addHighlightedElement(elemIdentifier, highlightedElementData) {
@@ -78,8 +76,6 @@ export async function addHighlightedElement(elemIdentifier, highlightedElementDa
       [elemIdentifier]: highlightedElementData,
     },
   })
-
-  console.log(`Added "${elemIdentifier}" to highlighted elements.`)
 }
 
 export async function setHighlightedElements(highlightedElementData) {
@@ -199,16 +195,12 @@ export async function addCacheMetadataInfo(cacheElemIdentifier, metadata) {
       [cacheElemIdentifier]: metadata,
     },
   })
-
-  console.log(`Updated cache metadata for "${cacheElemIdentifier}".`)
 }
 
 export async function getCacheMetadataInfo(cacheElemIdentifier) {
   const currentCacheMetadataInfo = await getFromStorage({
     key: PRIVATE_STORAGE_KEYS.cacheMetadataInfo,
   })
-
-  console.log({ currentCacheMetadataInfo })
 
   if (currentCacheMetadataInfo) {
     return currentCacheMetadataInfo[cacheElemIdentifier]

@@ -1,6 +1,7 @@
 import firebase from 'firebase'
 import { STORAGE_KEYS } from 'shared/constants'
 
+// eslint-disable-next-line
 const firebaseConfig = require('../config/firebase.json')
 
 let initialized = false
@@ -10,7 +11,7 @@ const COLLECTION_KEYS = {
   processedUrls: 'processedUrls',
   workSessions: 'workSessions',
   workSessionState: 'workSessionState',
-  allUrls: 'allUrls',
+  allUrls: 'allUrlsV1',
 }
 
 const DEFAULT_WORK_SESSION_STATE = {
@@ -111,7 +112,6 @@ export const startNewWorkSession = async (user) => {
 }
 
 export const getProcessedUrls = async (user) => {
-  console.log({ user })
   const processedUrlDocuments = await _getProcessedUrls(user)
 
   return processedUrlDocuments.map(doc => {
@@ -215,8 +215,7 @@ export const getAllUrls = async () => {
 
   const allUrls = await firebase
     .firestore()
-    // .collection(COLLECTION_KEYS.allUrls)
-    .collection('test1')
+    .collection(COLLECTION_KEYS.allUrls)
     .get()
 
   let result = []

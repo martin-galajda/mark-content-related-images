@@ -16,11 +16,11 @@ const CACHEABLE_KEYS = {
 // so we will need to define "time-to-live" for values in our cache 
 const DEFAULT_CACHE_EXPIRATION_IN_SECONDS = {
 
-  // cache all urls for annotations for 1 hour
-  [CACHEABLE_KEYS.allUrls]: 3600,
+  // cache all urls for annotations for 24 hours
+  [CACHEABLE_KEYS.allUrls]: 3600 * 24,
 
-  // cache processed urls for annotations for half an hour
-  [CACHEABLE_KEYS.processedUrls]: 1800,
+  // cache processed urls for annotations for 1 hour
+  [CACHEABLE_KEYS.processedUrls]: 3600,
 
   // cache active url (for annotating) for 1 hour
   [CACHEABLE_KEYS.activeUrl]: 3600,

@@ -168,6 +168,18 @@ class PopupPageComponent extends React.Component {
   onGoToActiveUrlInNewTab = () => {
     chrome.tabs.create({ url: this.state[STORAGE_KEYS.activeUrl] })
   }
+
+  onGoToNextPageUnsaved = async () => {
+    this.setState({
+      loading: true,
+    })
+    await urlService.goToNextPageUnsaved()
+    await this.init()
+
+    this.setState({
+      loading: false,
+    })
+  }
   
   render() {
     if (this.state.loading) {
@@ -195,8 +207,7 @@ class PopupPageComponent extends React.Component {
           onSignOut={this.onSignOut}
           onClearBrowserCache={this.onClearBrowserCache}
           onGoToActiveUrlInNewTab={this.onGoToActiveUrlInNewTab}
-
-          cState={this.state}
+          onGoToNextPageUnsaved={this.onGoToNextPageUnsaved}
         />
         : <SignInPage
           onSignIn={this.onSignIn}

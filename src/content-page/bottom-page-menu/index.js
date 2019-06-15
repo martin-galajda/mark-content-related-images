@@ -6,8 +6,31 @@ import { MESSAGE_KEYS } from 'shared/constants'
 import * as chromeService from 'shared/services/chrome-service'
 import { Loader } from 'shared/components/loader'
 import PropTypes from 'prop-types'
+import { fontDefinition as robotoMediumBase64 } from 'shared/fonts/roboto-medium-base64'
+import { fontDefinition as montserratMediumBase64 } from 'shared/fonts/montserrat-medium-base64'
 
 const MenuWrapper = styled.div`
+  @font-face {
+    font-family: roboto-medium;
+    src: url(data: application/x-font-ttf;charset=utf-8;base64,${robotoMediumBase64});
+  }
+
+  @font-face {
+    font-family: montserrat;
+    src: url(data: application/x-font-ttf;charset=utf-8;base64,${montserratMediumBase64});
+  }
+
+  font-family: montserrat;
+  font-variant: all-petite-caps;
+  font-size: 1.15em;
+
+  button { 
+    font-family: montserrat;
+    font-variant: all-petite-caps;
+    font-size: 1.15em;
+    color: black;
+  }
+
   height: 10% !important; 
   width: 100% !important;
   background: #eee;
@@ -23,6 +46,7 @@ const MenuWrapper = styled.div`
   font-size: 14px;
   line-height: 1.7;
   color: white;
+  min-height: 80px;
 `
 
 const GoToNextPageBtnWrapper = styled.div`
@@ -31,8 +55,25 @@ const GoToNextPageBtnWrapper = styled.div`
   margin: auto;
   display: flex;
   align-items: center;
+
+  ${props => `
+    ${props.loading ? 'justify-content: center;' : 'justify-content: space-between;'}
+  `}
+`
+
+const ButtonWithArrowsWrapper = styled.div`
+  width: 40%;
+  color: black;
+
+  width: 40%;
+  color: black;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  text-align: center;
   justify-content: center;
 `
+
 const GoToNextPageBtn = styled.button`
   border: 3px solid white;
   border-radius: 10px;
@@ -41,6 +82,7 @@ const GoToNextPageBtn = styled.button`
   padding-left: 8px;
   padding-right: 8px;
   background: white;
+  color: black;
 
   &:hover {
     background: aliceblue;
@@ -48,6 +90,15 @@ const GoToNextPageBtn = styled.button`
     border: 3px solid aliceblue;
   }
 `
+
+const MenuInfo = styled.div`
+  padding-left: 15px;
+  padding-right: 15px;
+  color: white;
+  width: 30%px;
+`
+
+const getSizeInBytes = str => new Blob([str]).size
 
 export class BottomPageMenu extends React.Component {
 
@@ -60,20 +111,25 @@ export class BottomPageMenu extends React.Component {
       loading: true,
     })
 
+    let html = String(document.documentElement.innerHTML)
+    if (getSizeInBytes(html) > 600000) {
+      // Firestore allows us to save only Strings with maximum size of 1MB
+      // We dont care that much about inline styles (inside head element)
+      // or script tags, so we  just get rid of them in that case
+      html = html.replace(/<head.*?<\/head>/gms, '')
+      html = html.replace(/<script.*?<\/script>/gms, '')
+    }
+
     try {
       await chromeService.sendMessage({
         messageKey: MESSAGE_KEYS.onGoToNextPage,
         data: {
-          html: String(document.documentElement.innerHTML),
+          html,
         }
       })
     } catch (err) {
       console.error({ err })
     }
-
-    this.setState({
-      loading: false,
-    })
   }
 
   onGoToNextPageWithoutSaving = async () => {
@@ -88,10 +144,6 @@ export class BottomPageMenu extends React.Component {
     } catch (err) {
       console.error({ err })
     }
-
-    this.setState({
-      loading: false,
-    })
   }
 
 
@@ -107,19 +159,16 @@ export class BottomPageMenu extends React.Component {
     } catch (err) {
       console.error({ err })
     }
-
-    this.setState({
-      loading: false,
-    })
   }
 
   render() {
     if (this.state.loading) {
       return <MenuWrapper>
-        <GoToNextPageBtnWrapper>
+        <GoToNextPageBtnWrapper loading>
           <Loader 
             top={0}
             spinnerSizeRatio={0.5}
+            transformSpinner={'translate(-35px, 0px) scale(1) translate(0px, -10px)'}
           />
         </GoToNextPageBtnWrapper>
       </MenuWrapper>
@@ -128,11 +177,19 @@ export class BottomPageMenu extends React.Component {
 
     return <MenuWrapper>
       <GoToNextPageBtnWrapper>
-        {this.props.activeUrlHasPrevAnnotated ? <Arrow left onClick={this.onGoToPrevPage} />: null}
-        <GoToNextPageBtn onClick={this.onGoToNextPage}>
-          Save marked images and proceed to next page
-        </GoToNextPageBtn>
-        {this.props.activeUrlHasNextAnnotated ? <Arrow onClick={this.onGoToNextPageWithoutSaving} />: null}
+        <MenuInfo> Current page: {this.props.currentUrlsPosition} / {this.props.allUrlsCount}. </MenuInfo>
+
+        <ButtonWithArrowsWrapper>
+          {this.props.activeUrlHasPrevAnnotated ? <Arrow left onClick={this.onGoToPrevPage} />: null}
+          <GoToNextPageBtn onClick={this.onGoToNextPage}>
+            Save marked images and proceed to next page
+          </GoToNextPageBtn>
+
+          <Arrow onClick={this.onGoToNextPageWithoutSaving} />
+
+        </ButtonWithArrowsWrapper>
+        <MenuInfo> Annotated already: {this.props.processedUrlsCount} / {this.props.allUrlsCount}. </MenuInfo>
+
       </GoToNextPageBtnWrapper>
     </MenuWrapper>
   }
@@ -141,4 +198,7 @@ export class BottomPageMenu extends React.Component {
 BottomPageMenu.propTypes = {
   activeUrlHasNextAnnotated: PropTypes.bool.isRequired,
   activeUrlHasPrevAnnotated: PropTypes.bool.isRequired,
+  currentUrlsPosition: PropTypes.number.isRequired,
+  processedUrlsCount: PropTypes.number.isRequired,
+  allUrlsCount: PropTypes.number.isRequired,
 }

@@ -8,34 +8,46 @@ import { BottomPageMenu } from './bottom-page-menu'
 import * as chromeService from 'shared/services/chrome-service'
 import * as highlightingService from './services/highlighting-service'
 
+const REINDEX_ELEMENTS_INTERVAL_SECONDS = 3500
+
 /**
  * 
  * @param {Object} annotatedData 
  */
-async function setupContentScript(annotatedData, { activeUrlHasNextAnnotated, activeUrlHasPrevAnnotated }) {
+async function setupContentScript(annotatedData, {
+  activeUrlHasNextAnnotated,
+  activeUrlHasPrevAnnotated,
+  currentUrlsPosition,
+  processedUrlsCount,
+  allUrlsCount
+}) {
   const reactAppRoot = document.createElement('div')
   document.documentElement.appendChild(reactAppRoot)
   ReactDOM.render(<BottomPageMenu
     activeUrlHasNextAnnotated={activeUrlHasNextAnnotated}
-    activeUrlHasPrevAnnotated={activeUrlHasPrevAnnotated}  
+    activeUrlHasPrevAnnotated={activeUrlHasPrevAnnotated}
+    currentUrlsPosition={currentUrlsPosition}
+    processedUrlsCount={processedUrlsCount}
+    allUrlsCount={allUrlsCount}
   />, reactAppRoot)
 
-  setInterval(setupHighlightingElements, 1000)
-
-  console.log({ annotatedData })
-  
   if (annotatedData) {
     const dataToRestore = annotatedData.data.annotatedElementsData
-    console.log({ dataToRestore })
-
     await storage.setHighlightedElements(dataToRestore)
   } else {
     await storage.setHighlightedElements(null)
   }
+  setupHighlightingElements()
+
+  setInterval(setupHighlightingElements, REINDEX_ELEMENTS_INTERVAL_SECONDS)
 }
 
 async function setupHighlightingElements() {
   const highlightedElements = await storage.getHighlightedElements()
+
+  const rootNode = document.getRootNode()
+  highlightingService.highlightElementsInDOM(highlightedElements, rootNode)
+
   const elements = document.querySelectorAll('body img')
 
   for (const elem of elements) {
@@ -54,10 +66,24 @@ async function init() {
       data: {}
     }).then(response => {
       const currentURL = window.location.href
-      const { activeUrl, activeUrlAnnotatedData, activeUrlHasNextAnnotated, activeUrlHasPrevAnnotated } = response
+      const {
+        activeUrl,
+        activeUrlAnnotatedData,
+        activeUrlHasNextAnnotated,
+        activeUrlHasPrevAnnotated,
+        currentUrlsPosition,
+        processedUrlsCount,
+        allUrlsCount
+      } = response
 
       if (areUrlsSame(currentURL, activeUrl)) {
-        setupContentScript(activeUrlAnnotatedData, { activeUrlHasNextAnnotated, activeUrlHasPrevAnnotated })
+        setupContentScript(activeUrlAnnotatedData, {
+          activeUrlHasNextAnnotated,
+          activeUrlHasPrevAnnotated,
+          currentUrlsPosition,
+          processedUrlsCount,
+          allUrlsCount
+        })
     
         chromeService.listenForMessage({
           messageKey: MESSAGE_KEYS.onStopWorking,

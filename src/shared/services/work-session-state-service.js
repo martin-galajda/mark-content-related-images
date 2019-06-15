@@ -1,6 +1,7 @@
 import * as firestore from 'shared/firestore'
 import * as storage from 'shared/storage'
 import * as auth from 'shared/auth'
+import * as urlService from 'shared/services/url-service'
 
 export const getCurrentUserWorkSessionState = async (user) => {
   const currentWorkSessionState = await firestore.getUserWorkSessionState(user)
@@ -21,15 +22,19 @@ export const getCurrentWorkSessionState = async () => {
 }
 
 export const incrementProcessedUrlsCurrIdx = async () => {
-  const { 
+  const [{ 
     user,
     currentWorkSessionState,
-  } = await getCurrentWorkSessionState()
+  }, allUrls ] = await Promise.all([
+    getCurrentWorkSessionState(),
+    urlService.getAllUrls(),
+  ])
 
+  const newCurrIdx = (currentWorkSessionState.processedUrlsListCurrIdx + 1) % allUrls.length
   const newCurrentWorkSessionState = await firestore
-    .setProcessedUrlsCurrIdx(user, currentWorkSessionState.processedUrlsListCurrIdx + 1)
+    .setProcessedUrlsCurrIdx(user, newCurrIdx)
 
-  await storage.setProcessedUrlsCurrIdx(currentWorkSessionState.processedUrlsListCurrIdx + 1)
+  await storage.setProcessedUrlsCurrIdx(newCurrIdx)
 
   return newCurrentWorkSessionState
 }
