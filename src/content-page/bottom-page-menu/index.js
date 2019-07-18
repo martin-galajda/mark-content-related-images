@@ -34,7 +34,7 @@ const MenuWrapper = styled.div`
   height: 10% !important; 
   width: 100% !important;
   background: #eee;
-  z-index: 150000 !important;
+  z-index: 99999999 !important;
   position: fixed;
   bottom: 0px;
   display: flex;
@@ -112,12 +112,23 @@ export class BottomPageMenu extends React.Component {
     })
 
     let html = String(document.documentElement.innerHTML)
+
     if (getSizeInBytes(html) > 600000) {
       // Firestore allows us to save only Strings with maximum size of 1MB
       // We dont care that much about inline styles (inside head element)
       // or script tags, so we  just get rid of them in that case
-      html = html.replace(/<head.*?<\/head>/gms, '')
-      html = html.replace(/<script.*?<\/script>/gms, '')
+      html = html.replace(/<head[^]*?<\/head>/gms, '')
+      html = html.replace(/<script[^]*?<\/script>/gms, '')
+      html = html.replace(/<style[^]*?<\/style>/gms, '')
+      html = html.replace(/<iframe[^]*?<\/iframe>/gms, '')
+    }
+
+    if (getSizeInBytes(html) > 999000) {
+      html = html.replace(/^\s+|\s+$/gms, '')
+    }
+
+    while (getSizeInBytes(html) > 999000) {
+      html = html.substr(0, html.length - 100)
     }
 
     try {
@@ -175,7 +186,7 @@ export class BottomPageMenu extends React.Component {
     }
 
 
-    return <MenuWrapper>
+    return <MenuWrapper classes="chrome-extension-wrapper">
       <GoToNextPageBtnWrapper>
         <MenuInfo> Current page: {this.props.currentUrlsPosition} / {this.props.allUrlsCount}. </MenuInfo>
 

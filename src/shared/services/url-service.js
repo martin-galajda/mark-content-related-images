@@ -63,8 +63,9 @@ export const getAllUrls = async () => {
     return allUrlsInBrowserCache
   }
 
-  const allUrls = await firestore
-    .getAllUrls()
+  const user = await auth.getUser(await storage.getAccessToken())
+  const dataset = user.settings.activeWorkSessionId
+  const allUrls = await firestore.getAllUrls(dataset)
 
   await browserCache.setAllUrls(allUrls)
 

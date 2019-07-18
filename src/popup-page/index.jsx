@@ -3,16 +3,15 @@ import React, { } from 'react'
 import ReactDOM from 'react-dom'
 import * as storage from 'shared/storage'
 import * as browserCache from 'shared/cache/browser'
-import * as firestore from 'shared/firestore'
 import * as urlService from 'shared/services/url-service'
 import * as chromeService from 'shared/services/chrome-service'
-import { IDS, STORAGE_KEYS, DEFAULT_STORAGE_VALUES, MESSAGE_KEYS } from 'shared/constants'
+import * as workSessionService from 'shared/services/work-session-service'
+import { IDS, STORAGE_KEYS, DEFAULT_STORAGE_VALUES, MESSAGE_KEYS, POPUP_PAGE_VIEWS } from 'shared/constants'
 import * as auth from 'shared/auth'
 import { PageContainer } from './styled'
 import { Loader } from 'shared/components/loader'
 import { AuthenticatedPage }  from './components/authenticated-page'
 import { SignInPage }  from './components/sign-in-page'
-
 
 class PopupPageComponent extends React.Component {
 
@@ -25,10 +24,14 @@ class PopupPageComponent extends React.Component {
     loading: true,
     profile: null,
     userUrlsForProcessing: null,
+    currentView: POPUP_PAGE_VIEWS.default,
   }
 
   async componentDidMount() {
-    await this.init()
+    await Promise.all([
+      this.init(),
+      this.subscribeToNewWorkSessionData()
+    ])
   }
 
   async init() {
@@ -53,6 +56,25 @@ class PopupPageComponent extends React.Component {
       userUrlsForProcessing,
       loading: false,
     })
+  }
+
+  subscribeToNewWorkSessionData() {
+    this.unsubscribeToNewWorkSessionData = workSessionService.subscribeToWorkSessions({
+      onData: workSessions => {
+        this.setState({
+          workSessions,
+        })
+      },
+      onError: err => {
+        console.error({ err }, 'Error occured when subscribing to new work sesion.')
+      }
+    })
+  }
+
+  componentWillUnmount() {
+    if (this.unsubscribeToNewWorkSessionData) {
+      this.unsubscribeToNewWorkSessionData()
+    }
   }
 
   loadStateFromStorage = async () => {
@@ -111,32 +133,6 @@ class PopupPageComponent extends React.Component {
     }
   }
   
-  onResetAndStartOver = async () => {
-    await storage.clearHighlightedElements()
-
-    this.setState({
-      loading: true,
-    })
-
-    try {
-      const newSessionData = await firestore.startNewWorkSession(this.state.user)
-
-      const updatedUser = {
-        ...this.state.user,
-        session: newSessionData,
-      }
-        
-      await browserCache.setProcessedUrls([])
-      await storage.setUserInStorage(updatedUser)
-      await urlService.goToNextPage()
-      await this.init()
-    } catch (err) {
-      this.setState({
-        loading: false,
-      })
-    }
-  }
-  
   onStartWorking = async () => {
     await storage.setExtensionIsActive(true)
     const newURL = await urlService
@@ -159,7 +155,12 @@ class PopupPageComponent extends React.Component {
     this.setState({
       loading: true,
     })
-    await browserCache.invalidateAllItems()
+
+    await chromeService.sendMessage({
+      messageKey: MESSAGE_KEYS.onClearCache,
+    })
+    await this.init()
+
     this.setState({
       loading: false,
     })
@@ -180,6 +181,18 @@ class PopupPageComponent extends React.Component {
       loading: false,
     })
   }
+
+  onGoToSettingsView = () => {
+    this.setState({
+      currentView: POPUP_PAGE_VIEWS.settingsPage,
+    })
+  }
+
+  onGoToDefaultView = () => {
+    this.setState({
+      currentView: POPUP_PAGE_VIEWS.default,
+    })
+  }
   
   render() {
     if (this.state.loading) {
@@ -194,20 +207,23 @@ class PopupPageComponent extends React.Component {
       {this.state.profile
         ? <AuthenticatedPage
           profile={this.state.profile}
+          user={this.state.user}
           isExtensionActive={this.state[STORAGE_KEYS.extensionIsActive]}
 
           activeUrl={this.state[STORAGE_KEYS.activeUrl]}
-          session={this.state.user.session}
           userUrlsForProcessing={this.state.userUrlsForProcessing}
+          workSessions={this.state.workSessions}
+          currentView={this.state.currentView}
 
           onStartWorking={this.onStartWorking}
           onStopWorking={this.onStopWorking}
           onProceedToNextPage={this.onProceedToNextPage}
-          onResetAndStartOver={this.onResetAndStartOver}
           onSignOut={this.onSignOut}
           onClearBrowserCache={this.onClearBrowserCache}
           onGoToActiveUrlInNewTab={this.onGoToActiveUrlInNewTab}
           onGoToNextPageUnsaved={this.onGoToNextPageUnsaved}
+          onGoToSettingsView={this.onGoToSettingsView}
+          onGoToDefaultView={this.onGoToDefaultView}
         />
         : <SignInPage
           onSignIn={this.onSignIn}

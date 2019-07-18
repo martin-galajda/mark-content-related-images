@@ -7,22 +7,30 @@ const firebaseConfig = require('../config/firebase.json')
 let initialized = false
 
 const COLLECTION_KEYS = {
-  processedUrlsData: 'processedUrlsData',
-  processedUrls: 'processedUrls',
   workSessions: 'workSessions',
-  workSessionState: 'workSessionState',
-  allUrls: 'allUrlsV1',
+  processedUrls: (activeWorkSessionId) => `workSessions/${activeWorkSessionId}/processedUrls`,
+  processedUrlsData: (activeWorkSessionId) => `workSessions/${activeWorkSessionId}/processedUrlsData`,
+  userSettings: 'userSettings',
+  datasets: 'datasets',
+  datasetUrls: (datasetName) => `datasets/${datasetName}/urls`,
 }
 
-const DEFAULT_WORK_SESSION_STATE = {
-  [STORAGE_KEYS.processedUrlsListCurrIdx]: 0,
+
+const makeDefaultUserSettings = async () => {
+  init()
+
+  const datasets = await listDatasets()
+  const dataset = datasets[0]
+
+  const workSession = await getOrCreateDatasetWorkSession(dataset.id)
+
+  return {
+    activeWorkSessionId: workSession.id,
+  }
 }
 
 const makeProcessedUrlKey = processedUrl => encodeURIComponent(processedUrl)
 const decodeProcessedUrlKey = encodedProcessedUrlKey => decodeURIComponent(encodedProcessedUrlKey)
-
-const makeSessionKey = user => `session-${user.session.activeWorkSessionId}`
-const makeWorkSessionStateKey = user => `${user.profile.email}-${makeSessionKey(user)}`
 
 const init = () => {
   if (initialized) {
@@ -42,74 +50,87 @@ export const getMyAuth = async (token) => {
     .auth()
     .signInAndRetrieveDataWithCredential(credential)
 
+  console.log({ userCredential })
   const profile = userCredential.additionalUserInfo.profile
-  const userSession = await getWorkSession(profile)
+
+  const userSettingsDoc = await getOrCreateUserSettings(profile)
+  console.log({ userSettingsDoc })
+  const userSessionDoc = await getOrCreateDatasetWorkSession(userSettingsDoc.data.activeWorkSessionId)
+  console.log({ userSessionDoc })
 
   const user = {
     profile,
-    session: userSession,
+    activeWorkSession: userSessionDoc.data,
+    settings: userSettingsDoc.data,
   }
 
   return user
 }
 
-export const getWorkSession = async (userProfile) => {
+const getOrCreateDoc = async ({ collectionName, docName, defaultValue }) => {
   init()
-  const userSession = await firebase
+  const docRef = firebase
     .firestore()
-    .collection(COLLECTION_KEYS.workSessions)
-    .doc(userProfile.email)
-    .get()
+    .collection(collectionName)
+    .doc(docName)
 
-  if (userSession.exists) {
-    return userSession.data()
+  const doc = await docRef.get()
+
+  if (doc.exists) {
+    return {
+      id: doc.id,
+      data: doc.data()
+    }
   }
 
-  const newUserSession = await firebase.firestore()
-    .collection(COLLECTION_KEYS.workSessions)
-    .doc(userProfile.email)
+  const timestampNow = (new Date()).toISOString()
+  const newDoc = await docRef
     .set({
-      ids: [0],
-      activeWorkSessionId: 0,
+      ...defaultValue,
+      createdAt: timestampNow,
+      updatedAt: timestampNow,
     })
 
-  return newUserSession.data()
+  return {
+    id: newDoc.id,
+    data: newDoc.data()
+  }
 }
 
-export const startNewWorkSession = async (user) => {
+export const getOrCreateDatasetWorkSession = (datasetName) => {
+  const defaultValue = {
+    state: { [STORAGE_KEYS.processedUrlsListCurrIdx] : 0 },
+    datasetName: datasetName,
+  }
+
+  return getOrCreateDoc({ collectionName: COLLECTION_KEYS.workSessions, docName: datasetName, defaultValue })
+}
+export const getOrCreateUserSettings = async (userProfile) => {
+  const defaultValue = await makeDefaultUserSettings()
+
+  return getOrCreateDoc({ collectionName: COLLECTION_KEYS.userSettings, docName: userProfile.email, defaultValue })
+}
+
+const listCollection = async (collectionName) => {
   init()
-  const userSession = await firebase
+
+  const collection = await firebase
     .firestore()
-    .collection(COLLECTION_KEYS.workSessions)
-    .doc(user.profile.email)
+    .collection(collectionName)
     .get()
 
-  if (!userSession.exists) {
-    throw new Error('User was expected to have some work session when starting new!')
+  if (!collection.empty) {
+    return collection.docs.map(workSession => ({
+      id: workSession.id,
+      data: workSession.data(),
+    }))
   }
 
-  const userCurrentSessionData = userSession.data()
-  const activeWorkSessionId = userCurrentSessionData.activeWorkSessionId
-  const newActiveWorkSessionId = activeWorkSessionId + 1
-
-  const newSessionData = {
-    ids: userCurrentSessionData.ids.concat([newActiveWorkSessionId]),
-    activeWorkSessionId: newActiveWorkSessionId,
-  }
-
-  const userWorkSessionDoc = await firebase
-    .firestore()
-    .collection(COLLECTION_KEYS.workSessions)
-    .doc(user.profile.email)
-
-  await userWorkSessionDoc
-    .set(newSessionData)
-
-  const newUserSessionData = await userWorkSessionDoc
-    .get()
-
-  return newUserSessionData.data()
+  return []
 }
+
+export const listWorkSessions = () => listCollection(COLLECTION_KEYS.workSessions)
+export const listDatasets = () => listCollection(COLLECTION_KEYS.datasets)
 
 export const getProcessedUrls = async (user) => {
   const processedUrlDocuments = await _getProcessedUrls(user)
@@ -146,9 +167,7 @@ export const saveProcessedUrlData = async (processedUrl, processedUrlData, user)
   
   const newProcessedUrlData = await firebase
     .firestore()
-    .collection(COLLECTION_KEYS.processedUrlsData)
-    .doc(user.profile.email)
-    .collection(makeSessionKey(user))
+    .collection(COLLECTION_KEYS.processedUrlsData(user.settings.activeWorkSessionId))
     .doc(makeProcessedUrlKey(processedUrl))
     .set({
       url: processedUrl,
@@ -163,9 +182,7 @@ export const saveProcessedUrl = async (processedUrl, processedUrlData, user) => 
   
   const newProcessedUrlData = await firebase
     .firestore()
-    .collection(COLLECTION_KEYS.processedUrls)
-    .doc(user.profile.email)
-    .collection(makeSessionKey(user))
+    .collection(COLLECTION_KEYS.processedUrls(user.settings.activeWorkSessionId))
     .doc(makeProcessedUrlKey(processedUrl))
     .set({
       url: processedUrl,
@@ -178,11 +195,10 @@ export const saveProcessedUrl = async (processedUrl, processedUrlData, user) => 
 const _getProcessedUrlsData = async (user) => {
   init()
 
+  const userActiveWorkSessionId = user.settings.activeWorkSessionId
   const userProcessedUrlsData = await firebase
     .firestore()
-    .collection(COLLECTION_KEYS.processedUrlsData)
-    .doc(user.profile.email)
-    .collection(makeSessionKey(user))
+    .collection(COLLECTION_KEYS.processedUrlsData(userActiveWorkSessionId))
     .get()
 
   if (userProcessedUrlsData.empty) {
@@ -195,11 +211,10 @@ const _getProcessedUrlsData = async (user) => {
 const _getProcessedUrls = async (user) => {
   init()
 
+  const userActiveWorkSessionId = user.settings.activeWorkSessionId
   const userProcessedUrls = await firebase
     .firestore()
-    .collection(COLLECTION_KEYS.processedUrls)
-    .doc(user.profile.email)
-    .collection(makeSessionKey(user))
+    .collection(COLLECTION_KEYS.processedUrls(userActiveWorkSessionId))
     .get()
 
   if (userProcessedUrls.empty) {
@@ -209,13 +224,12 @@ const _getProcessedUrls = async (user) => {
   return userProcessedUrls.docs
 }
 
-
-export const getAllUrls = async () => {
+export const getAllUrls = async (datasetName) => {
   init()
 
   const allUrls = await firebase
     .firestore()
-    .collection(COLLECTION_KEYS.allUrls)
+    .collection(COLLECTION_KEYS.datasetUrls(datasetName))
     .get()
 
   let result = []
@@ -224,27 +238,49 @@ export const getAllUrls = async () => {
   }
 
   const allUrlsFromFirebase = result
-    .filter(r => r.exists)
-    .map(r => r.data().pageUrl)
+    .filter(doc => doc.exists)
+    .map(doc => doc.data().pageUrl)
 
   return allUrlsFromFirebase
 }
 
-const updateUserWorkSessionState = async (user, workSessionStateUpdates) => {
+export const subscribeToWorkSessions = observer => {
+  init()
+
+  const cancelSubscription = firebase
+    .firestore()
+    .collection(COLLECTION_KEYS.workSessions)
+    .onSnapshot({
+      next: snapshot => {
+        const docs = snapshot.docs.map((docSnapshot) => ({
+          id: docSnapshot.id,
+          data: docSnapshot.data()
+        }))
+      
+        observer.onData(docs)
+
+        return docs
+      },
+      error: err => observer.onError && observer.onError(err),
+    })
+
+  return cancelSubscription
+}
+
+const updateDatasetWorkSessionState = async (datasetName, workSessionStateUpdates) => {
   try {
     init()
 
-    const userWorkSessionState = await firebase
+    const datasetWorkSession = await firebase
       .firestore()
-      .collection(COLLECTION_KEYS.workSessionState)
-      .doc(makeWorkSessionStateKey(user))
+      .collection(COLLECTION_KEYS.workSessions)
+      .doc(datasetName)
   
-    await userWorkSessionState.update('processedUrlsListCurrIdx',
-      workSessionStateUpdates.processedUrlsListCurrIdx)
+    await datasetWorkSession.update('state', workSessionStateUpdates)
   
-    const userWorkSessionStateDoc = await userWorkSessionState.get()
+    const datasetWorkSessionDoc = await datasetWorkSession.get()
   
-    return userWorkSessionStateDoc.data()
+    return datasetWorkSessionDoc.data()
   } catch (err) {
     console.error(err)
     console.error('Error updating user work session state.')
@@ -252,36 +288,7 @@ const updateUserWorkSessionState = async (user, workSessionStateUpdates) => {
 }
 
 export const setProcessedUrlsCurrIdx = async (user, newCurrIdx) => {
-  return await updateUserWorkSessionState(user, {
+  return await updateDatasetWorkSessionState(user.settings.activeWorkSessionId, {
     [STORAGE_KEYS.processedUrlsListCurrIdx]: newCurrIdx,
   })
-}
-
-export const getUserWorkSessionState = async (user) => {
-  init()
-
-  try {
-    const userWorkSessionStateRef = await firebase
-      .firestore()
-      .collection(COLLECTION_KEYS.workSessionState)
-      .doc(makeWorkSessionStateKey(user))
-
-    const userWorkSessionState = await userWorkSessionStateRef.get()
-
-    if (!userWorkSessionState.exists) {
-      await userWorkSessionStateRef.set(DEFAULT_WORK_SESSION_STATE)
-
-      const docRef = await userWorkSessionStateRef
-        .get()
-
-      return docRef.data()
-    }
-
-    const docData = await userWorkSessionState.data()
-
-    return docData
-  } catch (err) {
-    console.error({ err }, 'Error getting user work session state.')
-    throw new Error('Error getting user work session state.')
-  }
 }

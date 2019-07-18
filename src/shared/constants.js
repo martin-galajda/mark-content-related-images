@@ -34,6 +34,7 @@ export const MESSAGE_KEYS = {
   onGoToPrevPage: 'onGoToPrevPage',
   onGoToNextPageFromPopUp: 'onGoToNextPageFromPopUp',
   onContentScriptLoaded: 'onContentScriptLoaded',
+  onClearCache: 'onClearCache',
 }
 
 export const DEFAULT_STORAGE_VALUES = {
@@ -51,4 +52,11 @@ export const REMOVABLE_KEYS = R.filter(val => ![
   STORAGE_KEYS.accessToken,
 ].includes(val), R.values(R.concat(R.values(STORAGE_KEYS), R.values(PRIVATE_STORAGE_KEYS))))
 
+console.log(REMOVABLE_KEYS)
+
 export const GOOGLE_REVOKE_TOKEN_API_URL = 'https://accounts.google.com/o/oauth2/revoke'
+
+export const POPUP_PAGE_VIEWS = {
+  default: 'default',
+  settingsPage: 'settingsPage', 
+}

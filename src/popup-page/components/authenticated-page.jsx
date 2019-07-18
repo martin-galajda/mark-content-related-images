@@ -2,59 +2,44 @@ import React from 'react'
 import { BadgeContainer,
   BadgeImg,
   Menu,
-  MenuButton, 
   BadgeText,
   LineItem, 
   MetadataConainer,
-  ButtonsContainer,
   ButtonsMenu,
 } from '../styled'
 import PropTypes from 'prop-types'
+import { AuthenticatedMenuButtons } from './authenticated-page-menu-buttons'
+import { UserSettingsForm } from './user-settings-form'
+import { POPUP_PAGE_VIEWS } from 'shared/constants'
 
 export class AuthenticatedPage extends React.Component {
-  getButtons() {
-    const buttons = []
 
-    if (this.props.isExtensionActive) {
-      buttons.push(...[
-        <MenuButton isFirst key="btn-1" onClick={this.props.onStopWorking}>Stop Working</MenuButton>,
-        <MenuButton key="btn-2" onClick={this.props.onResetAndStartOver}>Restart with New Session</MenuButton>,
-        <MenuButton key="btn-3" onClick={this.props.onClearBrowserCache}>Clear Browser Cache</MenuButton>,
-        <MenuButton key="btn-4" onClick={this.props.onGoToActiveUrlInNewTab}>Go to Current Page</MenuButton>,
-        <MenuButton key="btn-5" onClick={this.props.onGoToNextPageUnsaved}>Go to Next Page</MenuButton>,
-        <MenuButton key="btn-6" onClick={this.props.onSignOut}>Sign Out</MenuButton>,
-      ])
-    } else {
-      buttons.push(...[
-        <MenuButton isFirst key="btn-1" onClick={this.props.onStartWorking}>Start Working</MenuButton>,
-        <MenuButton key="btn-2" onClick={this.props.onClearBrowserCache}>Clear Browser Cache</MenuButton>,
-        <MenuButton key="btn-3" onClick={this.props.onSignOut}>Sign Out</MenuButton>,
-      ])
+  getView() {
+    switch (this.props.currentView) {
+    case POPUP_PAGE_VIEWS.settingsPage:
+      return <UserSettingsForm activeWorkSession="test" />
+    case POPUP_PAGE_VIEWS.default:
+      return <AuthenticatedMenuButtons {...this.props} />
     }
-
-    return buttons
   }
 
   render() {
-    const props = this.props
 
     return (
       <Menu>
         <BadgeContainer>
-          <BadgeImg src={props.profile.picture} />
-          <BadgeText>{props.profile.email}</BadgeText>
+          <BadgeImg src={this.props.profile.picture} />
+          <BadgeText>{this.props.profile.email}</BadgeText>
         </BadgeContainer>
         <ButtonsMenu>
-          <ButtonsContainer>
-            {this.getButtons()}
-          </ButtonsContainer>
+          {this.getView()}
 
           <MetadataConainer>
             <LineItem>
-              Active work session ID: {props.session.activeWorkSessionId}
+              Active dataset: {this.props.user.settings.activeWorkSessionId}
             </LineItem>
             <LineItem>
-              Processed {props.userUrlsForProcessing.getProcessedUrlsLength()} URL-s out of {props.userUrlsForProcessing.getAllUrlsLength()}.
+              Processed {this.props.userUrlsForProcessing.getProcessedUrlsLength()} URL-s out of {this.props.userUrlsForProcessing.getAllUrlsLength()}.
             </LineItem>
 
           </MetadataConainer>
@@ -66,12 +51,18 @@ export class AuthenticatedPage extends React.Component {
 
 AuthenticatedPage.propTypes = {
   isExtensionActive: PropTypes.bool.isRequired,
+  currentView: PropTypes.string.isRequired,
   onStopWorking: PropTypes.func.isRequired,
   onProceedToNextPage: PropTypes.func.isRequired,
-  onResetAndStartOver: PropTypes.func.isRequired,
   onClearBrowserCache: PropTypes.func.isRequired,
   onSignOut: PropTypes.func.isRequired,
   onStartWorking: PropTypes.func.isRequired,
   onGoToActiveUrlInNewTab: PropTypes.func.isRequired,
   onGoToNextPageUnsaved: PropTypes.func.isRequired,
+  profile: PropTypes.shape({
+    email: PropTypes.string.isRequired,
+    picture: PropTypes.string.isRequired,
+  }),
+  userUrlsForProcessing: PropTypes.any,
+  user: PropTypes.any,
 }

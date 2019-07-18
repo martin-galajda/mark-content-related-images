@@ -31,7 +31,7 @@ export const updateCurrentTabURL = async newURL => {
     })
 
     return updatedTab
-  } catch (err)  {
+  } catch (err) {
     console.error(err)
     console.error('Failed to update current tab url.')
   }

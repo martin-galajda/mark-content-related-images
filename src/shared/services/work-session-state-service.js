@@ -2,14 +2,16 @@ import * as firestore from 'shared/firestore'
 import * as storage from 'shared/storage'
 import * as auth from 'shared/auth'
 import * as urlService from 'shared/services/url-service'
+import { STORAGE_KEYS } from 'shared/constants'
 
 export const getCurrentUserWorkSessionState = async (user) => {
-  const currentWorkSessionState = await firestore.getUserWorkSessionState(user)
+  const currentWorkSession = await firestore
+    .getOrCreateDatasetWorkSession(user.settings.activeWorkSessionId)
 
-  await storage.setProcessedUrlsCurrIdx(currentWorkSessionState.processedUrlsListCurrIdx)
+  await storage.setProcessedUrlsCurrIdx(currentWorkSession.data.state[STORAGE_KEYS.processedUrlsListCurrIdx])
 
   return { 
-    currentWorkSessionState,
+    currentWorkSessionState: currentWorkSession.data.state,
     user,
   }
 }

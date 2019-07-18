@@ -8,13 +8,32 @@ import * as browserCache from 'shared/cache/browser'
 import * as firestore from 'shared/firestore'
 import { MESSAGE_KEYS } from 'shared/constants'
 
-
-chrome.runtime.onInstalled.addListener(async function() {
+const clearCache = async () => {
   await browserCache.invalidateAllItems()
   await storage.clear()
 
-  const allUrls = await firestore.getAllUrls()
+  const datasets = await firestore.listDatasets()
+  const allUrls = await firestore.getAllUrls(datasets[0].id)
   await browserCache.setAllUrls(allUrls)
+}
+
+chrome.runtime.onInstalled.addListener(async function() {
+  let allUrls = await browserCache.getAllUrls()
+
+  if (!allUrls) {
+    const datasets = await firestore.listDatasets()
+    allUrls = await firestore.getAllUrls(datasets[0].id)
+    await browserCache.setAllUrls(allUrls)  
+  }
+})
+
+chromeService.listenForMessage({
+  messageKey: MESSAGE_KEYS.onClearCache,
+  callback: async (request, sender, sendResponse) => {
+    await clearCache()
+    
+    sendResponse({ success: true })
+  }
 })
 
 chrome.declarativeContent.onPageChanged.removeRules(undefined, function() {
