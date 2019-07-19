@@ -2,11 +2,11 @@ import * as firestore from 'shared/firestore'
 import * as storage from 'shared/storage'
 import * as constants from 'shared/constants'
 
-export const getUser = async token => {
+export const getUser = async (token, opts) => {
   const userInStorage = await storage.getUserFromStorage()
   await storage.setAccessToken(token)
 
-  if (userInStorage) {
+  if (userInStorage && (!opts || !opts.fromRemote)) {
     return userInStorage
   }
 

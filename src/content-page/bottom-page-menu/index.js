@@ -8,6 +8,8 @@ import { Loader } from 'shared/components/loader'
 import PropTypes from 'prop-types'
 import { fontDefinition as robotoMediumBase64 } from 'shared/fonts/roboto-medium-base64'
 import { fontDefinition as montserratMediumBase64 } from 'shared/fonts/montserrat-medium-base64'
+import { Button, withStyles } from '@material-ui/core'
+
 
 const MenuWrapper = styled.div`
   @font-face {
@@ -74,29 +76,31 @@ const ButtonWithArrowsWrapper = styled.div`
   justify-content: center;
 `
 
-const GoToNextPageBtn = styled.button`
-  border: 3px solid white;
-  border-radius: 10px;
-  padding: 5px;
-  font-size: 16px;
-  padding-left: 8px;
-  padding-right: 8px;
-  background: white;
-  color: black;
-
-  &:hover {
-    background: aliceblue;
-    cursor: pointer;
-    border: 3px solid aliceblue;
-  }
-`
-
 const MenuInfo = styled.div`
   padding-left: 15px;
   padding-right: 15px;
   color: white;
   width: 30%px;
 `
+
+const GoToNextPageBtn = withStyles({
+  root: {
+    background: 'linear-gradient(to right, #fff, #fff)', 
+    borderRadius: 3,
+    border: 0,
+    color: 'white',
+    height: 48,
+    padding: '0 30px',
+    boxShadow: '0 3px 5px 2px rgba(255, 105, 135, .3)',
+    '&:hover': {
+      background: 'linear-gradient(to right, aliceblue, aliceblue)',
+    },
+  },
+  label: {
+    textTransform: 'capitalize',
+  },
+})(Button)
+
 
 const getSizeInBytes = str => new Blob([str]).size
 
@@ -172,6 +176,10 @@ export class BottomPageMenu extends React.Component {
     }
   }
 
+  //   <GoToNextPageBtn onClick={this.onGoToNextPage}>
+  //   Save marked images and proceed to next page
+  // </GoToNextPageBtn>
+
   render() {
     if (this.state.loading) {
       return <MenuWrapper>
@@ -192,7 +200,8 @@ export class BottomPageMenu extends React.Component {
 
         <ButtonWithArrowsWrapper>
           {this.props.activeUrlHasPrevAnnotated ? <Arrow left onClick={this.onGoToPrevPage} />: null}
-          <GoToNextPageBtn onClick={this.onGoToNextPage}>
+
+          <GoToNextPageBtn variant="contained" color="primary" fullWidth onClick={this.onGoToNextPage}>
             Save marked images and proceed to next page
           </GoToNextPageBtn>
 

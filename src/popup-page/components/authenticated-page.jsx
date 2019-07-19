@@ -11,15 +11,22 @@ import PropTypes from 'prop-types'
 import { AuthenticatedMenuButtons } from './authenticated-page-menu-buttons'
 import { UserSettingsForm } from './user-settings-form'
 import { POPUP_PAGE_VIEWS } from 'shared/constants'
+import { UserSettingsFormContainer } from '../styled'
 
 export class AuthenticatedPage extends React.Component {
 
   getView() {
     switch (this.props.currentView) {
     case POPUP_PAGE_VIEWS.settingsPage:
-      return <UserSettingsForm activeWorkSession="test" />
+      return <UserSettingsForm
+        activeWorkSession={this.props.user.settings.activeWorkSessionId}
+        onGoBack={this.props.onGoToDefaultView}
+        onUpdateUserWorkSession={this.props.onUpdateUserWorkSession}
+      />
     case POPUP_PAGE_VIEWS.default:
-      return <AuthenticatedMenuButtons {...this.props} />
+      return <UserSettingsFormContainer> 
+        <AuthenticatedMenuButtons {...this.props} /> 
+      </UserSettingsFormContainer>
     }
   }
 
@@ -59,6 +66,8 @@ AuthenticatedPage.propTypes = {
   onStartWorking: PropTypes.func.isRequired,
   onGoToActiveUrlInNewTab: PropTypes.func.isRequired,
   onGoToNextPageUnsaved: PropTypes.func.isRequired,
+  onGoToDefaultView: PropTypes.func.isRequired,
+  onUpdateUserWorkSession: PropTypes.func.isRequired,
   profile: PropTypes.shape({
     email: PropTypes.string.isRequired,
     picture: PropTypes.string.isRequired,

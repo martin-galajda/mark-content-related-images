@@ -44,8 +44,8 @@ export const ButtonsMenu = styled.div`
 
 export const PageContainer = styled.div`
   max-height: 600px;
-  min-height: 200px;
-  width: 260px;
+  min-height: 150px;
+  width: 400px;
 
   font-family: Montserrat;
 
@@ -55,6 +55,16 @@ export const PageContainer = styled.div`
     font-variant: all-petite-caps;
     font-size: 1.15em;
   }
+
+`
+
+export const LoaderContainer = styled.div`
+  width:  100%;
+  height: 100%;
+  margin: auto;
+  display: flex;
+  align-items: center;
+  min-height: 150px;
 `
 
 export const BadgeContainer = styled.div`
@@ -62,20 +72,20 @@ export const BadgeContainer = styled.div`
   height: 50px;
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
+  justify-content: flex-start;
 `
 
 export const BadgeImg = styled.img`
   height: 50px;
   width: 50px;
   border-radius: 50%;
-  margin: auto;
+  margin-left: 8%;
+  margin-right: 10px;
 `
 
 export const BadgeText = styled.div`
   height: 50px;
   width: auto;
-  margin: auto;
   text-align: center;
   vertical-align: middle;
   line-height: 50px;
@@ -120,9 +130,16 @@ export const ButtonsContainer = styled.div`
   flex-direction: column;
 `
 
-export const SelectWorkSessionFormContainer = styled.div`
+export const UserSettingsFormContainer = styled.div`
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
+`
+
+export const ButtonGroup = styled.div`
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  margin: 12px;
 `

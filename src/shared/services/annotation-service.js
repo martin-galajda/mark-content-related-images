@@ -20,8 +20,6 @@ export const saveAnnotatedUrl = async (html) => {
   ])
   const user = await auth.getUser(accessToken)
 
-  console.log(annotatedElementsData)
-
   await Promise.all([
     firestore.saveProcessedUrlData(processedUrl, {
       html,

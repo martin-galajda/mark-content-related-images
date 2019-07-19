@@ -19,26 +19,28 @@ export const getUserUrlsListForProcessing = async user => {
     getAllUrls(),
     getProcessedUrlsByUser(user),
   ])
-
+  
   const userUrlsList = new UserUrlsList(allUrls, processedUrlsData, currentWorkSessionState[STORAGE_KEYS.processedUrlsListCurrIdx])
 
   return userUrlsList
 }
 
-export const getProcessedUrlsByUser = async user => {
-  const processedUrlsFromCache = await browserCache
-    .getProcessedUrls()
-
-  if (processedUrlsFromCache) {
-    return processedUrlsFromCache
-  }
-
+const getProcessedUrlsByUserFromRemote = async user => {
   const processedUrlsFromRemote = await firestore
     .getProcessedUrls(user)
 
   await browserCache.setProcessedUrls(processedUrlsFromRemote)
 
   return processedUrlsFromRemote
+}
+
+export const getProcessedUrlsByUser = async (user, opts) => {
+  if (opts && opts.fromRemote) {
+    return getProcessedUrlsByUserFromRemote(user)
+  }
+  const processedUrlsFromCache = await browserCache.getProcessedUrls()
+
+  return processedUrlsFromCache || getProcessedUrlsByUserFromRemote(user)
 }
 
 export const getCurrentUserProcessedUrls = async () => {
@@ -57,23 +59,27 @@ export const getCurrentUserUrlsListForProcessing = async () => {
   return getUserUrlsListForProcessing(user)
 }
 
-export const getAllUrls = async () => {
-  const allUrlsInBrowserCache = await browserCache.getAllUrls()
-  if (allUrlsInBrowserCache) {
-    return allUrlsInBrowserCache
-  }
-
+const getAllUrlsFromRemote = async () => {
   const user = await auth.getUser(await storage.getAccessToken())
   const dataset = user.settings.activeWorkSessionId
   const allUrls = await firestore.getAllUrls(dataset)
 
   await browserCache.setAllUrls(allUrls)
 
-  return allUrls  
+  return allUrls
+}
+export const getAllUrls = async (opts) => {
+  if (opts && opts.fromRemote) {
+    return getAllUrlsFromRemote()
+  }
+  const allUrlsInBrowserCache = await browserCache.getAllUrls()
+
+  return allUrlsInBrowserCache || getAllUrlsFromRemote()
 }
 
 export const getCurrentUserWorkSessionUrl = async user => {
   const userUrls = await getUserUrlsListForProcessing(user)
+
 
   return userUrls.getCurrentUrl()
 }
@@ -107,13 +113,7 @@ export const goToNextPageUnsaved = async () => {
   }
 }
 
-
-export const getActiveUrl = async () => {
-  const activeUrlInCache = await browserCache.getActiveUrl()
-  if (activeUrlInCache) {
-    return activeUrlInCache
-  }
-
+const getActiveUrlFromRemote = async () => {
   const user = await auth.getUser(await storage.getAccessToken())
   const nextUserUrl = await getCurrentUserWorkSessionUrl(user)
 
@@ -122,6 +122,17 @@ export const getActiveUrl = async () => {
   if (nextUserUrl) {
     await chromeService.updateCurrentTabURL(nextUserUrl)  
   }
+
+  return nextUserUrl
+}
+
+export const getActiveUrl = async (opts) => {
+  if (opts && opts.fromRemote) {
+    return getActiveUrlFromRemote()
+  }
+
+  const activeUrlInCache = await browserCache.getActiveUrl()
+  return activeUrlInCache || getActiveUrlFromRemote()
 }
 
 export const goToPrevPage = async () => {

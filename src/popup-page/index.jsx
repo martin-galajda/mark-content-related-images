@@ -8,10 +8,11 @@ import * as chromeService from 'shared/services/chrome-service'
 import * as workSessionService from 'shared/services/work-session-service'
 import { IDS, STORAGE_KEYS, DEFAULT_STORAGE_VALUES, MESSAGE_KEYS, POPUP_PAGE_VIEWS } from 'shared/constants'
 import * as auth from 'shared/auth'
-import { PageContainer } from './styled'
-import { Loader } from 'shared/components/loader'
+import { PageContainer, LoaderContainer } from './styled'
+import { MaterialLoader } from 'shared/components/material-loader'
 import { AuthenticatedPage }  from './components/authenticated-page'
 import { SignInPage }  from './components/sign-in-page'
+import * as userSettingsService from 'shared/services/user-settings-service'
 
 class PopupPageComponent extends React.Component {
 
@@ -193,12 +194,26 @@ class PopupPageComponent extends React.Component {
       currentView: POPUP_PAGE_VIEWS.default,
     })
   }
+
+  onUpdateUserWorkSession = async (newWorkSessionId) => {
+    this.setState({ loading: true })
+
+    await userSettingsService.updateUserActiveWorkSession(this.state.user, newWorkSessionId)
+    await this.init()
+
+    this.setState({
+      currentView: POPUP_PAGE_VIEWS.default,
+      loading: false,
+    })
+  }
   
   render() {
     if (this.state.loading) {
       return (
         <PageContainer>
-          <Loader />
+          <LoaderContainer>
+            <MaterialLoader />
+          </LoaderContainer>
         </PageContainer>
       )
     }
@@ -224,6 +239,7 @@ class PopupPageComponent extends React.Component {
           onGoToNextPageUnsaved={this.onGoToNextPageUnsaved}
           onGoToSettingsView={this.onGoToSettingsView}
           onGoToDefaultView={this.onGoToDefaultView}
+          onUpdateUserWorkSession={this.onUpdateUserWorkSession}
         />
         : <SignInPage
           onSignIn={this.onSignIn}

@@ -50,13 +50,10 @@ export const getMyAuth = async (token) => {
     .auth()
     .signInAndRetrieveDataWithCredential(credential)
 
-  console.log({ userCredential })
   const profile = userCredential.additionalUserInfo.profile
 
   const userSettingsDoc = await getOrCreateUserSettings(profile)
-  console.log({ userSettingsDoc })
   const userSessionDoc = await getOrCreateDatasetWorkSession(userSettingsDoc.data.activeWorkSessionId)
-  console.log({ userSessionDoc })
 
   const user = {
     profile,
@@ -254,7 +251,7 @@ export const subscribeToWorkSessions = observer => {
       next: snapshot => {
         const docs = snapshot.docs.map((docSnapshot) => ({
           id: docSnapshot.id,
-          data: docSnapshot.data()
+          data: docSnapshot.data(),
         }))
       
         observer.onData(docs)
@@ -291,4 +288,22 @@ export const setProcessedUrlsCurrIdx = async (user, newCurrIdx) => {
   return await updateDatasetWorkSessionState(user.settings.activeWorkSessionId, {
     [STORAGE_KEYS.processedUrlsListCurrIdx]: newCurrIdx,
   })
+}
+
+export const updateUserActiveWorkSession = async (user, newWorkSessionId) => {
+  init()
+
+  const userSettingsDoc = firebase
+    .firestore()
+    .collection(COLLECTION_KEYS.userSettings)
+    .doc(user.profile.email)
+
+  await userSettingsDoc.set({
+    activeWorkSessionId: newWorkSessionId,
+  }, { merge: true })
+
+
+  const updatedUserSettingsDoc = await userSettingsDoc.get()
+
+  return updatedUserSettingsDoc.data().activeWorkSessionId
 }

@@ -184,12 +184,6 @@ export async function getIsSignedIn() {
   return await getFromStorage({ key: STORAGE_KEYS.isSignedIn })
 }
 
-getFromStorage({
-  key: PRIVATE_STORAGE_KEYS.cacheMetadataInfo,
-}).then(currentCacheMetadataInfo => {
-  console.log({ currentCacheMetadataInfo })
-})
-
 export async function addCacheMetadataInfo(cacheElemIdentifier, metadata) {
   const currentCacheMetadataInfo = await getFromStorage({
     key: PRIVATE_STORAGE_KEYS.cacheMetadataInfo,

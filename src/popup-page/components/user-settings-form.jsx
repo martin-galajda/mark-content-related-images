@@ -5,19 +5,33 @@ import MenuItem from '@material-ui/core/MenuItem'
 import { makeStyles } from '@material-ui/core/styles'
 import InputLabel from '@material-ui/core/InputLabel'
 import FormControl from '@material-ui/core/FormControl'
+import Button from '@material-ui/core/Button'
 import PropTypes from 'prop-types'
+import { ButtonGroup } from '../styled'
+import { LoaderContainer } from '../styled'
+import { MaterialLoader } from 'shared/components/material-loader'
+
 
 const useStyles = makeStyles(theme => ({
   root: {
     display: 'flex',
     flexWrap: 'wrap',
+    width: '88%',
+    'align-self': 'center',
   },
   formControl: {
     margin: theme.spacing(1),
     minWidth: 120,
+    width: '100%',
   },
   selectEmpty: {
     marginTop: theme.spacing(2),
+  },
+  saveButton: {},
+  buttonGroup: {
+    'margin-top': '12px',
+    'margin-right': '10px',
+    'width': '32px',
   },
 }))
 
@@ -51,7 +65,9 @@ export function UserSettingsForm(props) {
   }, [])
 
   if (!workSessions.loaded) {
-    return null
+    return <LoaderContainer>
+      <MaterialLoader />
+    </LoaderContainer>
   }
 
   function handleChange(event) {
@@ -73,15 +89,31 @@ export function UserSettingsForm(props) {
             id: 'active-work-session-select',
           }}
         >
-          <MenuItem value={formValues.activeWorkSession}>Ten</MenuItem>
-          <MenuItem value={20}>Twenty</MenuItem>
-          <MenuItem value={30}>Thirty</MenuItem>
+          {workSessions.list.map(({ id, data }) => <MenuItem value={id} key={id}>{data.datasetName}</MenuItem>)}
         </Select>
       </FormControl>
+      <ButtonGroup> 
+        <Button variant="contained" size="medium" className={classes.saveButton} onClick={() => props.onGoBack()}>
+          Go Back
+        </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          size="medium"
+          className={classes.saveButton}
+          onClick={() => props.onUpdateUserWorkSession(formValues.activeWorkSession)}
+          disabled={props.activeWorkSession === formValues.activeWorkSession}>
+          Save
+        </Button>
+      </ButtonGroup>
+
     </form>
+    
   )
 }
 
 UserSettingsForm.propTypes = {
-  activeWorkSession: PropTypes.string,
+  activeWorkSession: PropTypes.string.isRequired,
+  onGoBack: PropTypes.func.isRequired,
+  onUpdateUserWorkSession: PropTypes.func.isRequired,
 }

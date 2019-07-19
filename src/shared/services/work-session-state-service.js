@@ -8,7 +8,8 @@ export const getCurrentUserWorkSessionState = async (user) => {
   const currentWorkSession = await firestore
     .getOrCreateDatasetWorkSession(user.settings.activeWorkSessionId)
 
-  await storage.setProcessedUrlsCurrIdx(currentWorkSession.data.state[STORAGE_KEYS.processedUrlsListCurrIdx])
+  await storage
+    .setProcessedUrlsCurrIdx(currentWorkSession.data.state[STORAGE_KEYS.processedUrlsListCurrIdx])
 
   return { 
     currentWorkSessionState: currentWorkSession.data.state,
