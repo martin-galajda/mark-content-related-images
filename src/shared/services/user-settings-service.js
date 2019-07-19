@@ -14,7 +14,7 @@ export const updateUserActiveWorkSession = async (user, newActiveWorkSessionId) 
     workSessionStateService.getCurrentUserWorkSessionState(updatedUser),
   ])
   await urlService.getProcessedUrlsByUser(updatedUser, { fromRemote: true })
-  const activeUrl = await urlService.getActiveUrl({ fromRemote: true })
+  await urlService.getActiveUrl({ fromRemote: true })
 
   return newSession
 }
