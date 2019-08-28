@@ -3,22 +3,20 @@ import * as auth from 'shared/auth'
 import * as firestore from 'shared/firestore'
 import * as urlService from 'shared/services/url-service'
 import * as workSessionStateService from 'shared/services/work-session-state-service'
-import * as browserCache from 'shared/cache/browser'
-import * as R from 'ramda'
+import * as userSettingsService from 'shared/services/user-settings-service'
 
 export const saveAnnotatedUrl = async (html) => {
   const [
     annotatedElementsData,
     accessToken,
-    processedUrl,
-    currentProcessedUrls,
   ] = await Promise.all([
     storage.getHighlightedElements(),
     storage.getAccessToken(),
-    storage.getActiveUrl(),
-    urlService.getCurrentUserProcessedUrls(),
   ])
   const user = await auth.getUser(accessToken)
+  const processedUrl = await userSettingsService.getUserActiveUrl(user)
+
+  const prevProcessedUrlData = await urlService.getProcessedUrlData(processedUrl, user)
 
   await Promise.all([
     firestore.saveProcessedUrlData(processedUrl, {
@@ -30,17 +28,20 @@ export const saveAnnotatedUrl = async (html) => {
     }, user),
   ])
 
+  let incrementMarkedImagesCount = Object.keys(annotatedElementsData).length
+
+  if (!prevProcessedUrlData) {
+    await Promise.all([
+      firestore.incrementProcessedUrls(user),
+      firestore.incrementMarkedImagesCountCount(user, incrementMarkedImagesCount),
+    ])
+  } else {
+    const oldCount = prevProcessedUrlData.data && prevProcessedUrlData.data.annotatedElementsData 
+      ? Object.keys(prevProcessedUrlData.data.annotatedElementsData).length 
+      : 0
+    await firestore.incrementMarkedImagesCountCount(user, incrementMarkedImagesCount - oldCount)
+  }
   await workSessionStateService.incrementProcessedUrlsCurrIdx()
 
-  const newProcessedUrlItem = {
-    url: processedUrl,
-    data: {
-      annotatedElementsData,
-    },
-  }
-  const newProcessedUrls = R.uniqBy(item => item.url, R.concat([newProcessedUrlItem], currentProcessedUrls))
-
-  await browserCache.setProcessedUrls(newProcessedUrls)
-  
   await storage.clearHighlightedElements()
 }

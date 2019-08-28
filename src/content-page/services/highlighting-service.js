@@ -1,6 +1,6 @@
 import * as storage from 'shared/storage'
 import { addProtocolToImgSrcIfMissing } from 'shared/utils'
-import { HTMLAttributeConstants } from '../constants'
+import { HTMLAttributeConstants, HTMLClasses } from '../constants'
 import { getPathFromDocRoot } from '../utils'
 import nanoid from 'nanoid'
 
@@ -10,63 +10,73 @@ let currentModifiedElements = {}
 const BORDER_STYLE_NOT_HIGHLIGHTED = '5px solid red'
 const BORDER_STYLE_HIGHLIGHTED = '5px solid green'
 
-export const highlightImgElement = (highlightedElements, imgHtmlElement) => {
-  const imgUrl = addProtocolToImgSrcIfMissing({
-    currentLocationProtocol: window.location.protocol,
-    url: imgHtmlElement.getAttribute('src'),
-  })
-  const imgUrlBase64 = btoa(imgUrl)
-
-  if (!highlighted[imgUrl]) {
-    highlighted[imgUrl] = true
-
-    imgHtmlElement.setAttribute('data-orig-width', imgHtmlElement.style.width)
-    imgHtmlElement.setAttribute('data-orig-height', imgHtmlElement.style.height)
-    imgHtmlElement.setAttribute('data-orig-border', imgHtmlElement.style.border)
-
-    imgHtmlElement.style.width = `${imgHtmlElement.clientWidth * 0.9}px`
-    imgHtmlElement.style.height = `${imgHtmlElement.clientHeight * 0.9}px`
-
-    imgHtmlElement.setAttribute(HTMLAttributeConstants.DATA_ANNOTATION_ID, nanoid())
+const isElementPartOfExtensionUI = event => {
+  if (event.path.some(elemOnPath => elemOnPath.classList && elemOnPath.classList.contains(HTMLClasses.EXTENSION_ROOT_ELEM_CLASS))) {
+    return true
   }
 
-  const isHighlighted = Boolean(highlightedElements[imgUrl])
-  imgHtmlElement.style.border = isHighlighted ? BORDER_STYLE_HIGHLIGHTED : BORDER_STYLE_NOT_HIGHLIGHTED
+  return false
+}
 
-  imgHtmlElement.setAttribute(HTMLAttributeConstants.DATA_ANNOTATION_PATH_FROM_ROOT, getPathFromDocRoot(imgHtmlElement))
-  imgHtmlElement.setAttribute(HTMLAttributeConstants.DATA_ANNOTATION_URL, imgUrl)
-  imgHtmlElement.setAttribute(HTMLAttributeConstants.DATA_ANNOTATION_URL_BASE64, imgUrlBase64)
+const makeOnClickHandler = (htmlElement, imgUrl, isHighlighted, callbackOnHighlighting) => {
 
-  currentModifiedElements[imgUrl] = imgHtmlElement
+  let imgUrlBase64 = ''
+  try {
+    // can fail in rare cases for some illegal characters
+    imgUrlBase64 = btoa(imgUrl)
+  } catch (err) {
+    console.error({ err })
+  }
 
-  imgHtmlElement.parentNode.onclick = async e => {
+  return async e => {
+    if (isElementPartOfExtensionUI(e)) {
+      return
+    }
+
     e.stopPropagation()
     e.preventDefault()
 
-    const elemPathFromRoot = getPathFromDocRoot(imgHtmlElement)
+    const elemPathFromRoot = getPathFromDocRoot(htmlElement)
 
     if (isHighlighted) {
       await storage.removeHighlightedElement(imgUrl)
-      imgHtmlElement.style.border = BORDER_STYLE_NOT_HIGHLIGHTED
+      htmlElement.style.border = BORDER_STYLE_NOT_HIGHLIGHTED
 
     } else {
       await storage.addHighlightedElement(imgUrl, {
         url: imgUrl,
-        dataAnnotationId: imgHtmlElement.getAttribute(HTMLAttributeConstants.DATA_ANNOTATION_ID),
+        dataAnnotationId: htmlElement.getAttribute(HTMLAttributeConstants.DATA_ANNOTATION_ID),
         imgUrlBase64,
         elemPathFromRoot,
       })
-      imgHtmlElement.style.border = BORDER_STYLE_HIGHLIGHTED
+      htmlElement.style.border = BORDER_STYLE_HIGHLIGHTED
     }
+
+    callbackOnHighlighting()
   }
 }
 
-export const highlightHtmlElement = (highlightedElements, htmlElement, url) => {
+export const highlightImgElement = (highlightedElements, imgHtmlElement, callbackOnHighlighting) =>
+  highlightHtmlElement(highlightedElements, imgHtmlElement, imgHtmlElement.getAttribute('src'), callbackOnHighlighting)
+
+export const highlightHtmlElement = (highlightedElements, htmlElement, url, callbackOnHighlighting) => {
+  if (!url) {
+    return
+  }
+  
   const imgUrl = addProtocolToImgSrcIfMissing({
     currentLocationProtocol: window.location.protocol,
-    url: url,
+    host: window.location.host,
+    url,
   })
-  const imgUrlBase64 = btoa(imgUrl)
+
+  let imgUrlBase64 = ''
+  try {
+    // can fail in rare cases for some illegal characters
+    imgUrlBase64 = btoa(imgUrl)
+  } catch (err) {
+    console.error({ err })
+  }
 
   if (!highlighted[imgUrl]) {
     highlighted[imgUrl] = true
@@ -79,27 +89,6 @@ export const highlightHtmlElement = (highlightedElements, htmlElement, url) => {
     htmlElement.style.height = `${htmlElement.clientHeight * 0.9}px`
 
     htmlElement.setAttribute(HTMLAttributeConstants.DATA_ANNOTATION_ID, nanoid())
-
-    htmlElement.parentNode.onclick = async e => {
-      e.stopPropagation()
-      e.preventDefault()
-
-      const elemPathFromRoot = getPathFromDocRoot(htmlElement)
-
-      if (isHighlighted) {
-        await storage.removeHighlightedElement(imgUrl)
-        htmlElement.style.border = BORDER_STYLE_NOT_HIGHLIGHTED
-
-      } else {
-        await storage.addHighlightedElement(imgUrl, {
-          url: imgUrl,
-          dataAnnotationId: htmlElement.getAttribute(HTMLAttributeConstants.DATA_ANNOTATION_ID),
-          imgUrlBase64,
-          elemPathFromRoot,
-        })
-        htmlElement.style.border = BORDER_STYLE_HIGHLIGHTED
-      }
-    }
   }
 
   const isHighlighted = Boolean(highlightedElements[imgUrl])
@@ -110,9 +99,12 @@ export const highlightHtmlElement = (highlightedElements, htmlElement, url) => {
   htmlElement.setAttribute(HTMLAttributeConstants.DATA_ANNOTATION_URL_BASE64, imgUrlBase64)
 
   currentModifiedElements[imgUrl] = htmlElement
+
+  htmlElement.parentNode.onclick = makeOnClickHandler(htmlElement, imgUrl, isHighlighted, callbackOnHighlighting) 
+  htmlElement.onclick = makeOnClickHandler(htmlElement, imgUrl, isHighlighted, callbackOnHighlighting) 
 }
 
-export const highlightElementsInDOM = (highlightedElements, documentRootNode) => {
+export const highlightElementsInDOM = (highlightedElements, documentRootNode, callbackOnHighlighting) => {
   const rootNode = documentRootNode
   const stack = [rootNode]
 
@@ -124,18 +116,25 @@ export const highlightElementsInDOM = (highlightedElements, documentRootNode) =>
       stack.push(childNode)
     }
 
-    if (!elemStyles) {
-      continue
-    }
+    const backgroundImage = elemStyles && elemStyles['backgroundImage']
 
-    const backgroundImage = elemStyles['backgroundImage']
-
+    let highlighted = false
     if (backgroundImage) {
       // try extracting url from background-image styles of the element
       const match = /url\("(?<url>.*)"\)/.exec(backgroundImage)
 
       if (match && match.groups && match.groups.url) {
-        highlightHtmlElement(highlightedElements, elem, match.groups.url)
+        highlightHtmlElement(highlightedElements, elem, match.groups.url, callbackOnHighlighting)
+        highlighted = true
+      }
+    }
+    
+    if (!highlighted) {
+      elem.onClick = e => {
+        if (!isElementPartOfExtensionUI(e)) {
+          e.preventDefault()
+          e.stopPropagation()  
+        }
       }
     }
   }

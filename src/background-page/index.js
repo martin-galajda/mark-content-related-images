@@ -4,37 +4,9 @@ import * as storage from 'shared/storage'
 import * as urlService from 'shared/services/url-service'
 import * as annotationService from 'shared/services/annotation-service'
 import * as chromeService from 'shared/services/chrome-service'
-import * as browserCache from 'shared/cache/browser'
-import * as firestore from 'shared/firestore'
 import { MESSAGE_KEYS } from 'shared/constants'
+import * as auth from 'shared/auth'
 
-const clearCache = async () => {
-  await browserCache.invalidateAllItems()
-  await storage.clear()
-
-  const datasets = await firestore.listDatasets()
-  const allUrls = await firestore.getAllUrls(datasets[0].id)
-  await browserCache.setAllUrls(allUrls)
-}
-
-chrome.runtime.onInstalled.addListener(async function() {
-  let allUrls = await browserCache.getAllUrls()
-
-  if (!allUrls) {
-    const datasets = await firestore.listDatasets()
-    allUrls = await firestore.getAllUrls(datasets[0].id)
-    await browserCache.setAllUrls(allUrls)  
-  }
-})
-
-chromeService.listenForMessage({
-  messageKey: MESSAGE_KEYS.onClearCache,
-  callback: async (request, sender, sendResponse) => {
-    await clearCache()
-    
-    sendResponse({ success: true })
-  }
-})
 
 chrome.declarativeContent.onPageChanged.removeRules(undefined, function() {
   chrome.declarativeContent.onPageChanged.addRules([{
@@ -55,8 +27,12 @@ chrome.declarativeContent.onPageChanged.removeRules(undefined, function() {
 chromeService.listenForMessage({
   messageKey: MESSAGE_KEYS.onGoToNextPage,
   callback: async (request, sender, sendResponse) => {
-    await annotationService.saveAnnotatedUrl(request.data.html)
-    await urlService.goToNextPage()
+    const currentTab = await chromeService.getCurrentTab()
+    await Promise.all([
+      storage.setCanNavigateToDifferentURL(true),
+      annotationService.saveAnnotatedUrl(request.data.html)
+    ])
+    await urlService.goToNextPageInTab(currentTab)
 
     sendResponse({ success: true })
   }
@@ -65,6 +41,7 @@ chromeService.listenForMessage({
 chromeService.listenForMessage({
   messageKey: MESSAGE_KEYS.onGoToNextPageWithoutSaving,
   callback: async (request, sender, sendResponse) => {
+    await storage.setCanNavigateToDifferentURL(true)
     await urlService.goToNextPageUnsaved()
 
     sendResponse({ success: true })
@@ -75,19 +52,22 @@ chromeService.listenForMessage({
 chromeService.listenForMessage({
   messageKey: MESSAGE_KEYS.onContentScriptLoaded,
   callback: async (request, sender, sendResponse) => {
-
-    const [userUrlsListForProcessing] = await Promise.all([
-      urlService.getCurrentUserUrlsListForProcessing(),
+    const [activeUrl, user] = await Promise.all([
+      urlService.getActiveUrl(),
+      auth.getUser(await storage.getAccessToken()),
     ])
+    const navigationInfo = await urlService.getNavigationInfo(user)
+    const activeUrlAnnotatedData = await urlService.getProcessedUrlData(activeUrl, user)
 
     const res = {
-      activeUrl: userUrlsListForProcessing.getCurrentUrl(),
-      activeUrlAnnotatedData: userUrlsListForProcessing.getAnnotatedDataForUrl(userUrlsListForProcessing.getCurrentUrl()),
-      activeUrlHasNextAnnotated: !userUrlsListForProcessing.isCurrentUrlLastNotAnnotated(),
-      activeUrlHasPrevAnnotated: !userUrlsListForProcessing.isCurrentUrlFirstNotAnnotated(),
-      currentUrlsPosition: userUrlsListForProcessing.currIdx + 1,
-      processedUrlsCount: userUrlsListForProcessing.getProcessedUrlsLength(),
-      allUrlsCount: userUrlsListForProcessing.getAllUrlsLength(),
+      activeUrl: activeUrl,
+      activeUrlAnnotatedData: activeUrlAnnotatedData,
+      activeUrlHasNextAnnotated: navigationInfo.hasNext,
+      activeUrlHasPrevAnnotated: navigationInfo.hasPrev,
+      currentUrlsPosition: navigationInfo.currentPosition + 1,
+      processedUrlsCount: navigationInfo.processedUrlsCount,
+      markedImagesCount: navigationInfo.markedImagesCount,
+      allUrlsCount: navigationInfo.allUrlsCount,
     }
 
     sendResponse(res)
@@ -97,6 +77,7 @@ chromeService.listenForMessage({
 chromeService.listenForMessage({
   messageKey: MESSAGE_KEYS.onGoToPrevPage,
   callback: async (request, sender, sendResponse) => {
+    await storage.setCanNavigateToDifferentURL(true)
     await urlService.goToPrevPage()
 
     sendResponse({ success: true })

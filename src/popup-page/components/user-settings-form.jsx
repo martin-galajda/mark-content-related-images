@@ -10,7 +10,11 @@ import PropTypes from 'prop-types'
 import { ButtonGroup } from '../styled'
 import { LoaderContainer } from '../styled'
 import { MaterialLoader } from 'shared/components/material-loader'
+import styled from 'styled-components'
 
+const Header = styled.h2`
+  margin-left: 8px;
+`
 
 const useStyles = makeStyles(theme => ({
   root: {
@@ -54,7 +58,6 @@ export function UserSettingsForm(props) {
           list: newData,
           loaded: true,
         })
-        console.log('Successfully subscribed to new work sessions.')
       },
       onError: err => {
         console.error({ err }, 'Error occurred while subscribing to new work sessions from UserSettingsForm.')
@@ -79,6 +82,7 @@ export function UserSettingsForm(props) {
 
   return (
     <form className={classes.root} autoComplete="off">
+      <Header> Settings </Header>
       <FormControl className={classes.formControl}>
         <InputLabel htmlFor="activeWorkSession">Work session</InputLabel>
         <Select

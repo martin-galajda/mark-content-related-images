@@ -8,6 +8,23 @@ import { BottomPageMenu } from './bottom-page-menu'
 import * as chromeService from 'shared/services/chrome-service'
 import * as highlightingService from './services/highlighting-service'
 
+let allowUnloadingWebsite = false
+
+const modifyURLNavigation = async () => {
+  window.addEventListener('beforeunload', async (event) => {
+    if (!allowUnloadingWebsite) {
+      event.preventDefault()
+      event.stopPropagation()
+
+      allowUnloadingWebsite = await storage.getCanNavigateToDifferentURL()
+  
+      // Chrome requires returnValue to be set.
+      event.returnValue = ''
+    }
+  })
+  await storage.setCanNavigateToDifferentURL(false)
+}
+
 const REINDEX_ELEMENTS_INTERVAL_SECONDS = 3500
 
 /**
@@ -19,6 +36,7 @@ async function setupContentScript(annotatedData, {
   activeUrlHasPrevAnnotated,
   currentUrlsPosition,
   processedUrlsCount,
+  markedImagesCount,
   allUrlsCount
 }) {
   const reactAppRoot = document.createElement('div')
@@ -28,7 +46,9 @@ async function setupContentScript(annotatedData, {
     activeUrlHasPrevAnnotated={activeUrlHasPrevAnnotated}
     currentUrlsPosition={currentUrlsPosition}
     processedUrlsCount={processedUrlsCount}
+    markedImagesCount={markedImagesCount}
     allUrlsCount={allUrlsCount}
+    allowNavigationChange={() => allowUnloadingWebsite = true}
   />, reactAppRoot)
 
   if (annotatedData) {
@@ -46,12 +66,12 @@ async function setupHighlightingElements() {
   const highlightedElements = await storage.getHighlightedElements()
 
   const rootNode = document.getRootNode()
-  highlightingService.highlightElementsInDOM(highlightedElements, rootNode)
+  highlightingService.highlightElementsInDOM(highlightedElements, rootNode, setupHighlightingElements)
 
   const elements = document.querySelectorAll('body img')
 
   for (const elem of elements) {
-    highlightingService.highlightImgElement(highlightedElements, elem)
+    highlightingService.highlightImgElement(highlightedElements, elem, setupHighlightingElements)
   }
 }
 
@@ -60,11 +80,11 @@ async function init() {
     storage.getExtensionIsActive(),
   ])
 
-  if (isActive) {
+  if (isActive) {    
     chromeService.sendMessage({
       messageKey: MESSAGE_KEYS.onContentScriptLoaded,
       data: {}
-    }).then(response => {
+    }).then(async response => {
       const currentURL = window.location.href
       const {
         activeUrl,
@@ -73,15 +93,17 @@ async function init() {
         activeUrlHasPrevAnnotated,
         currentUrlsPosition,
         processedUrlsCount,
+        markedImagesCount,
         allUrlsCount
       } = response
 
-      if (areUrlsSame(currentURL, activeUrl)) {
+      if (areUrlsSame(currentURL, activeUrl.pageUrl)) {
         setupContentScript(activeUrlAnnotatedData, {
           activeUrlHasNextAnnotated,
           activeUrlHasPrevAnnotated,
           currentUrlsPosition,
           processedUrlsCount,
+          markedImagesCount,
           allUrlsCount
         })
     
@@ -105,7 +127,10 @@ async function init() {
             })
           }
         })
+        await modifyURLNavigation()
       }
+    }).catch(err => {
+      console.log({ err })
     })
   }
 }

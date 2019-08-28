@@ -43,9 +43,14 @@ export const urlContainsHTTPProtocol = url => /^http(s)?/.test(url)
  * Adds current window location protocol to URL if it is missing.
  * Useful for src urls in image elements which sometimes do not contain protocol.
  */
-export const addProtocolToImgSrcIfMissing = ({ currentLocationProtocol, url }) => {
+export const addProtocolToImgSrcIfMissing = ({ currentLocationProtocol, url, host }) => {
   if (urlContainsHTTPProtocol(url)) {
     return url
+  }
+
+  const commonDomains = ['.com', '.cz', '.sk']
+  if (!url.includes(host) && !commonDomains.some(commonDomain => url.includes(commonDomain))) {
+    return `${currentLocationProtocol}//${host}${url}`
   }
 
   return `${currentLocationProtocol}${url}`

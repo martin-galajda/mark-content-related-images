@@ -12,7 +12,6 @@ export class AuthenticatedMenuButtons extends React.Component {
     if (this.props.isExtensionActive) {
       buttons.push(...[
         <MenuButton isFirst key="btn-1" onClick={this.props.onStopWorking}>Stop Working</MenuButton>,
-        // <MenuButton key="btn-2" onClick={this.props.onClearBrowserCache}>Clear Browser Cache</MenuButton>,
         <MenuButton key="btn-3" onClick={this.props.onGoToActiveUrlInNewTab}>Go to Current Page</MenuButton>,
         <MenuButton key="btn-4" onClick={this.props.onGoToNextPageUnsaved}>Go to Next Page</MenuButton>,
         <MenuButton key="btn-5" onClick={this.props.onGoToSettingsView}>Settings</MenuButton>,
@@ -21,7 +20,6 @@ export class AuthenticatedMenuButtons extends React.Component {
     } else {
       buttons.push(...[
         <MenuButton isFirst key="btn-1" onClick={this.props.onStartWorking}>Start Working</MenuButton>,
-        <MenuButton key="btn-2" onClick={this.props.onClearBrowserCache}>Clear Browser Cache</MenuButton>,
         <MenuButton key="btn-3" onClick={this.props.onSignOut}>Sign Out</MenuButton>,
       ])
     }
@@ -42,7 +40,6 @@ AuthenticatedMenuButtons.propTypes = {
   isExtensionActive: PropTypes.bool.isRequired,
   onStopWorking: PropTypes.func.isRequired,
   onProceedToNextPage: PropTypes.func.isRequired,
-  onClearBrowserCache: PropTypes.func.isRequired,
   onSignOut: PropTypes.func.isRequired,
   onStartWorking: PropTypes.func.isRequired,
   onGoToActiveUrlInNewTab: PropTypes.func.isRequired,

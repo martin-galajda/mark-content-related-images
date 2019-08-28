@@ -12,15 +12,12 @@ export const IDS = {
 }
 
 export const STORAGE_KEYS = {
-  highlightedElements: 'highlightedElements',
   extensionIsActive: 'extensionIsActive',
-  processedUrls: 'processedUrls',
-  allUrls: 'allUrls',
-  activeUrl: 'activeUrl',
   user: 'user',
   accessToken: 'accessToken',
   isSignedIn: 'isSignedIn',
-  processedUrlsListCurrIdx: 'processedUrlsListCurrIdx',
+  highlightedElements: 'highlightedElements',
+  canNavigateToDifferentURL: 'canNavigateToDifferentURL',
 }
 
 export const PRIVATE_STORAGE_KEYS = {
@@ -40,10 +37,6 @@ export const MESSAGE_KEYS = {
 export const DEFAULT_STORAGE_VALUES = {
   [STORAGE_KEYS.highlightedElements]: {},
   [STORAGE_KEYS.extensionIsActive]: false,
-  [STORAGE_KEYS.processedUrls]: [],
-  [STORAGE_KEYS.allUrls]: [],
-  [STORAGE_KEYS.processedUrlsData]: [],
-  [STORAGE_KEYS.activeUrl]: '',
   [PRIVATE_STORAGE_KEYS.cacheMetadataInfo]: {},
 }
 

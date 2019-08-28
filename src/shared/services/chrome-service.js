@@ -1,5 +1,5 @@
-export const getCurrentTab = () => {
-  return new Promise((resolve, reject) => {
+export const getCurrentTab = async () => {
+  return await new Promise((resolve, reject) => {
     chrome.tabs.query({
       active: true,
       currentWindow: true,
@@ -13,12 +13,10 @@ export const getCurrentTab = () => {
   })
 }
 
-export const updateCurrentTabURL = async newURL => {
+export const updateTabURL = async (newURL, tabId) => {
   try {
-    const currentTab = await getCurrentTab()
-
     const updatedTab = await new Promise((resolve, reject) => {
-      chrome.tabs.update(currentTab.id, {
+      chrome.tabs.update(tabId, {
         url: newURL,
       }, (tab) => {
         if (chrome.runtime.lastError) {
@@ -29,8 +27,21 @@ export const updateCurrentTabURL = async newURL => {
         resolve(tab)
       })
     })
+  
+    return updatedTab  
+  } catch (err) {
+    console.error(err)
+    console.error('Failed to update current tab url.')
+  }
+}
 
-    return updatedTab
+export const updateCurrentTabURL = async newURL => {
+  try {
+    const currentTab = await getCurrentTab()
+
+    const updatedTab = await updateTabURL(newURL, currentTab.id)
+
+    return updatedTab  
   } catch (err) {
     console.error(err)
     console.error('Failed to update current tab url.')
@@ -71,7 +82,7 @@ export const sendMessageToCurrentTab = async (messageData) => {
   }
 }
 
-export const listenForMessage = ({ messageKey, callback}) => {
+export const listenForMessage = ({ messageKey, callback }) => {
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.messageKey === messageKey) {
       callback(request, sender, sendResponse)

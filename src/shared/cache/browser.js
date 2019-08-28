@@ -5,65 +5,17 @@ import * as R from 'ramda'
 import { STORAGE_KEYS, PRIVATE_STORAGE_KEYS } from 'shared/constants'
 
 const CACHEABLE_KEYS = {
-  [STORAGE_KEYS.allUrls]: STORAGE_KEYS.allUrls,
-  [STORAGE_KEYS.processedUrls]: STORAGE_KEYS.processedUrls,
   [STORAGE_KEYS.user]: STORAGE_KEYS.user,
-  [STORAGE_KEYS.activeUrl]: STORAGE_KEYS.activeUrl,
 }
 
 // We cache data retrieved from firebase as much as possible to avoid
 // making too many requests, but we want to make it functional across different devices
 // so we will need to define "time-to-live" for values in our cache 
 const DEFAULT_CACHE_EXPIRATION_IN_SECONDS = {
-
-  // cache all urls for annotations for 24 hours
-  [CACHEABLE_KEYS.allUrls]: 3600 * 24,
-
-  // cache processed urls for annotations for 1 hour
-  [CACHEABLE_KEYS.processedUrls]: 3600,
-
-  // cache active url (for annotating) for 1 hour
-  [CACHEABLE_KEYS.activeUrl]: 3600,
-
   // cache any value for 1 minute
   any: 60,
 }
 
-export const getAllUrls = async () => {
-  const dataInCache = await _tryToGetFromCache(STORAGE_KEYS.allUrls)
-  
-  return dataInCache
-}
-
-export const getProcessedUrls = async () => {
-  const dataInCache = await _tryToGetFromCache(STORAGE_KEYS.processedUrls)
-  
-  return dataInCache
-}
-
-export const getActiveUrl = async () => {
-  const dataInCache = await _tryToGetFromCache(STORAGE_KEYS.activeUrl)
-  
-  return dataInCache
-}
-
-export const setActiveUrl = async (newActiveUrl) => {
-  const result = await _setInCache(STORAGE_KEYS.activeUrl, newActiveUrl)
-  
-  return result
-}
-
-export const setProcessedUrls = async (newProcessedUrls) => {
-  const result = await _setInCache(STORAGE_KEYS.processedUrls, newProcessedUrls)
-  
-  return result
-}
-
-export const setAllUrls = async (newAllUrls) => {
-  const result = await _setInCache(STORAGE_KEYS.allUrls, newAllUrls)
-  
-  return result
-}
 
 /**
  * Invalidates all items in our cache (forces client to fetch all items from remote storage - Firestore).

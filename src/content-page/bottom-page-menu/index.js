@@ -9,6 +9,7 @@ import PropTypes from 'prop-types'
 import { fontDefinition as robotoMediumBase64 } from 'shared/fonts/roboto-medium-base64'
 import { fontDefinition as montserratMediumBase64 } from 'shared/fonts/montserrat-medium-base64'
 import { Button, withStyles } from '@material-ui/core'
+import { HTMLClasses } from '../constants'
 
 
 const MenuWrapper = styled.div`
@@ -101,7 +102,6 @@ const GoToNextPageBtn = withStyles({
   },
 })(Button)
 
-
 const getSizeInBytes = str => new Blob([str]).size
 
 export class BottomPageMenu extends React.Component {
@@ -115,12 +115,14 @@ export class BottomPageMenu extends React.Component {
       loading: true,
     })
 
+    this.props.allowNavigationChange()
+
     let html = String(document.documentElement.innerHTML)
 
     if (getSizeInBytes(html) > 600000) {
       // Firestore allows us to save only Strings with maximum size of 1MB
       // We dont care that much about inline styles (inside head element)
-      // or script tags, so we  just get rid of them in that case
+      // or script tags, so we just get rid of them in that case
       html = html.replace(/<head[^]*?<\/head>/gms, '')
       html = html.replace(/<script[^]*?<\/script>/gms, '')
       html = html.replace(/<style[^]*?<\/style>/gms, '')
@@ -140,7 +142,7 @@ export class BottomPageMenu extends React.Component {
         messageKey: MESSAGE_KEYS.onGoToNextPage,
         data: {
           html,
-        }
+        },
       })
     } catch (err) {
       console.error({ err })
@@ -151,6 +153,7 @@ export class BottomPageMenu extends React.Component {
     this.setState({
       loading: true,
     })
+    this.props.allowNavigationChange()
 
     try {
       await chromeService.sendMessage({
@@ -166,6 +169,7 @@ export class BottomPageMenu extends React.Component {
     this.setState({
       loading: true,
     })
+    this.props.allowNavigationChange()
 
     try {
       await chromeService.sendMessage({
@@ -175,10 +179,6 @@ export class BottomPageMenu extends React.Component {
       console.error({ err })
     }
   }
-
-  //   <GoToNextPageBtn onClick={this.onGoToNextPage}>
-  //   Save marked images and proceed to next page
-  // </GoToNextPageBtn>
 
   render() {
     if (this.state.loading) {
@@ -193,8 +193,7 @@ export class BottomPageMenu extends React.Component {
       </MenuWrapper>
     }
 
-
-    return <MenuWrapper classes="chrome-extension-wrapper">
+    return <MenuWrapper className={HTMLClasses.EXTENSION_ROOT_ELEM_CLASS}>
       <GoToNextPageBtnWrapper>
         <MenuInfo> Current page: {this.props.currentUrlsPosition} / {this.props.allUrlsCount}. </MenuInfo>
 
@@ -208,7 +207,14 @@ export class BottomPageMenu extends React.Component {
           <Arrow onClick={this.onGoToNextPageWithoutSaving} />
 
         </ButtonWithArrowsWrapper>
-        <MenuInfo> Annotated already: {this.props.processedUrlsCount} / {this.props.allUrlsCount}. </MenuInfo>
+        <MenuInfo> 
+          <div>
+            Images collected: {this.props.markedImagesCount}.
+          </div>
+          <div>
+            Annotated already: {this.props.processedUrlsCount} / {this.props.allUrlsCount}.  
+          </div>
+        </MenuInfo>
 
       </GoToNextPageBtnWrapper>
     </MenuWrapper>
@@ -220,5 +226,7 @@ BottomPageMenu.propTypes = {
   activeUrlHasPrevAnnotated: PropTypes.bool.isRequired,
   currentUrlsPosition: PropTypes.number.isRequired,
   processedUrlsCount: PropTypes.number.isRequired,
+  markedImagesCount: PropTypes.number.isRequired,
   allUrlsCount: PropTypes.number.isRequired,
+  allowNavigationChange: PropTypes.func.isRequired,
 }

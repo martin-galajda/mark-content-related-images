@@ -2,147 +2,106 @@ import * as storage from 'shared/storage'
 import * as firestore from 'shared/firestore'
 import * as chromeService  from 'shared/services/chrome-service'
 import * as workSessionStateService  from 'shared/services/work-session-state-service'
+import * as userSettingsService  from 'shared/services/user-settings-service'
 import * as auth from 'shared/auth'
-import * as browserCache from 'shared/cache/browser'
-import { STORAGE_KEYS } from 'shared/constants'
-import { UserUrlsList } from 'shared/data/user-urls-list'
 
-/**
- * 
- * @param {object} user
- * @return {UserUrlsList}
- *    List containing state of annotated urls for current user
- */
-export const getUserUrlsListForProcessing = async user => {
-  const [{ currentWorkSessionState }, allUrls, processedUrlsData] = await Promise.all([
-    workSessionStateService.getCurrentUserWorkSessionState(user),
-    getAllUrls(),
-    getProcessedUrlsByUser(user),
-  ])
-  
-  const userUrlsList = new UserUrlsList(allUrls, processedUrlsData, currentWorkSessionState[STORAGE_KEYS.processedUrlsListCurrIdx])
+export const getAllDatasetUrlsCount = async () => {
+  const user = await auth.getUser(await storage.getAccessToken())
+  const datasetName = user.settings.activeWorkSessionId
+  const dataset = await firestore.getDataset(datasetName)
 
-  return userUrlsList
+  return dataset.data.urlsCount
 }
 
-const getProcessedUrlsByUserFromRemote = async user => {
-  const processedUrlsFromRemote = await firestore
-    .getProcessedUrls(user)
+export const goToNextPageInTab = async (tab) => {
+  const user = await auth.getUserCredentials()
+  const nextUserUrl = await userSettingsService.getUserActiveUrl(user)
 
-  await browserCache.setProcessedUrls(processedUrlsFromRemote)
-
-  return processedUrlsFromRemote
-}
-
-export const getProcessedUrlsByUser = async (user, opts) => {
-  if (opts && opts.fromRemote) {
-    return getProcessedUrlsByUserFromRemote(user)
+  if (nextUserUrl) {
+    await chromeService.updateTabURL(nextUserUrl.pageUrl, tab.id)  
   }
-  const processedUrlsFromCache = await browserCache.getProcessedUrls()
-
-  return processedUrlsFromCache || getProcessedUrlsByUserFromRemote(user)
-}
-
-export const getCurrentUserProcessedUrls = async () => {
-  const user = await auth.getUser(await storage.getAccessToken())
-  return getProcessedUrlsByUser(user)
-}
-
-/**
- * 
- * @return {UserUrlsList}
- *  List containing state of annotated urls for current user
- */
-export const getCurrentUserUrlsListForProcessing = async () => {
-  const user = await auth.getUser(await storage.getAccessToken())
-
-  return getUserUrlsListForProcessing(user)
-}
-
-const getAllUrlsFromRemote = async () => {
-  const user = await auth.getUser(await storage.getAccessToken())
-  const dataset = user.settings.activeWorkSessionId
-  const allUrls = await firestore.getAllUrls(dataset)
-
-  await browserCache.setAllUrls(allUrls)
-
-  return allUrls
-}
-export const getAllUrls = async (opts) => {
-  if (opts && opts.fromRemote) {
-    return getAllUrlsFromRemote()
-  }
-  const allUrlsInBrowserCache = await browserCache.getAllUrls()
-
-  return allUrlsInBrowserCache || getAllUrlsFromRemote()
-}
-
-export const getCurrentUserWorkSessionUrl = async user => {
-  const userUrls = await getUserUrlsListForProcessing(user)
-
-
-  return userUrls.getCurrentUrl()
-}
-
-const getPrevUserWorkSessionUrl = async user => {
-  const userUrls = await getUserUrlsListForProcessing(user)
-
-  return userUrls.getPrevUrl()
 }
 
 export const goToNextPage = async () => {
   const user = await auth.getUserCredentials()
-  const nextUserUrl = await getCurrentUserWorkSessionUrl(user)
-
-  await browserCache.setActiveUrl(nextUserUrl)
+  const nextUserUrl = await userSettingsService.getUserActiveUrl(user)
 
   if (nextUserUrl) {
-    await chromeService.updateCurrentTabURL(nextUserUrl)  
+    await chromeService.updateCurrentTabURL(nextUserUrl.pageUrl)  
   }
 }
 
 export const goToNextPageUnsaved = async () => {
   const user = await auth.getUserCredentials()
   await workSessionStateService.incrementProcessedUrlsCurrIdx()
-  const nextUserUrl = await getCurrentUserWorkSessionUrl(user)
-
-  await browserCache.setActiveUrl(nextUserUrl)
+  const nextUserUrl = await userSettingsService.getUserActiveUrl(user)
 
   if (nextUserUrl) {
-    await chromeService.updateCurrentTabURL(nextUserUrl)  
+    await chromeService.updateCurrentTabURL(nextUserUrl.pageUrl)  
   }
 }
 
-const getActiveUrlFromRemote = async () => {
+export const getActiveUrl = async () => {
   const user = await auth.getUser(await storage.getAccessToken())
-  const nextUserUrl = await getCurrentUserWorkSessionUrl(user)
-
-  await browserCache.setActiveUrl(nextUserUrl)
-
-  if (nextUserUrl) {
-    await chromeService.updateCurrentTabURL(nextUserUrl)  
-  }
-
+  const nextUserUrl = await userSettingsService.getUserActiveUrl(user)
   return nextUserUrl
-}
-
-export const getActiveUrl = async (opts) => {
-  if (opts && opts.fromRemote) {
-    return getActiveUrlFromRemote()
-  }
-
-  const activeUrlInCache = await browserCache.getActiveUrl()
-  return activeUrlInCache || getActiveUrlFromRemote()
 }
 
 export const goToPrevPage = async () => {
   const user = await auth.getUserCredentials()
   const prevUrl = await getPrevUserWorkSessionUrl(user)
 
-  await browserCache.setActiveUrl(prevUrl)
   await workSessionStateService.decrementProcessedUrlsCurrIdx()
 
   if (prevUrl) {
-    await chromeService.updateCurrentTabURL(prevUrl)  
+    await chromeService.updateCurrentTabURL(prevUrl.pageUrl)  
   }
+}
+
+export const getPrevUserWorkSessionUrl = async (user) => {
+  const { currentWorkSessionState } = await workSessionStateService.getCurrentUserWorkSessionState(user)
+
+  const currPosition = currentWorkSessionState.processedUrlsListCurrIdx
+  const datasetUrl = await firestore.getDatasetUrl(user.settings.activeWorkSessionId, currPosition-1)
+
+  return datasetUrl
+}
+
+export const hasNextUserWorkSessionUrl = async (user) => {
+  const [{ currentWorkSessionState }, allUrlsCount] = await Promise.all([
+    workSessionStateService.getCurrentUserWorkSessionState(user),
+    getAllDatasetUrlsCount(),
+  ])
+
+  return currentWorkSessionState.processedUrlsListCurrIdx < allUrlsCount - 1
+}
+
+export const hasPrevUserWorkSessionUrl = async (user) => {
+  const [{ currentWorkSessionState }] = await Promise.all([
+    workSessionStateService.getCurrentUserWorkSessionState(user),
+  ])
+
+  return currentWorkSessionState.processedUrlsListCurrIdx > 0
+}
+
+export const getNavigationInfo = async user => {
+  const [{ currentWorkSessionState }, allUrlsCount, workSessionCounts] = await Promise.all([
+    workSessionStateService.getCurrentUserWorkSessionState(user),
+    getAllDatasetUrlsCount(),
+    firestore.getWorkSessionCounts(user),
+  ])
+
+  return {
+    hasNext: currentWorkSessionState.processedUrlsListCurrIdx < allUrlsCount - 1,
+    hasPrev: currentWorkSessionState.processedUrlsListCurrIdx > 0,
+    currentPosition: currentWorkSessionState.processedUrlsListCurrIdx,
+    processedUrlsCount: workSessionCounts.processedUrlsCount,
+    markedImagesCount: workSessionCounts.markedImagesCount,
+    allUrlsCount,
+  }
+}
+
+export const getProcessedUrlData = async (activeUrl, user) => {
+  const processedUrlDoc = await firestore.getProcessedUrl(activeUrl, user)
+  return processedUrlDoc ? processedUrlDoc.data : null
 }

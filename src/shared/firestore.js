@@ -1,5 +1,4 @@
 import firebase from 'firebase'
-import { STORAGE_KEYS } from 'shared/constants'
 
 // eslint-disable-next-line
 const firebaseConfig = require('../config/firebase.json')
@@ -15,7 +14,6 @@ const COLLECTION_KEYS = {
   datasetUrls: (datasetName) => `datasets/${datasetName}/urls`,
 }
 
-
 const makeDefaultUserSettings = async () => {
   init()
 
@@ -29,8 +27,6 @@ const makeDefaultUserSettings = async () => {
   }
 }
 
-const makeProcessedUrlKey = processedUrl => encodeURIComponent(processedUrl)
-const decodeProcessedUrlKey = encodedProcessedUrlKey => decodeURIComponent(encodedProcessedUrlKey)
 
 const init = () => {
   if (initialized) {
@@ -39,6 +35,20 @@ const init = () => {
 
   // Initialize Firebase
   firebase.initializeApp(firebaseConfig)
+  firebase.firestore().enablePersistence()
+    .catch(function(err) {
+      if (err.code == 'failed-precondition') {
+        // Multiple tabs open, persistence can only be enabled
+        // in one tab at a a time.
+        // ...
+        console.error({ err, message: 'Failed firestore persistence precondition!' })
+      } else if (err.code == 'unimplemented') {
+        // The current browser does not support all of the
+        // features required to enable persistence
+        // ...
+        console.log({ err, message: 'Unimplemented firestore persistence!' })
+      }
+    })
   initialized = true
 }
 
@@ -64,7 +74,7 @@ export const getMyAuth = async (token) => {
   return user
 }
 
-const getOrCreateDoc = async ({ collectionName, docName, defaultValue }) => {
+const getDoc = async ({ collectionName, docName }) => {
   init()
   const docRef = firebase
     .firestore()
@@ -80,7 +90,47 @@ const getOrCreateDoc = async ({ collectionName, docName, defaultValue }) => {
     }
   }
 
+  return null
+}
+
+const queryDoc = async ({ collectionName, where, limit }) => {
+  init()
+  let query = firebase
+    .firestore()
+    .collection(collectionName)
+    .limit(limit || 10)
+
+  if (where) {
+    query = query.where(where.path, '==', where.value)
+  }
+
+  const queryRes = await query.get()
+
+  if (!queryRes.empty) {
+    const result = queryRes.docs.map(doc => ({
+      id: doc.id,
+      data: doc.data(),
+    }))
+
+    return result
+  }
+
+  return []
+}
+
+const getOrCreateDoc = async ({ collectionName, docName, defaultValue }) => {
+  init()
+  const doc = await getDoc({ collectionName, docName })
+
+  if (doc) {
+    return doc
+  }
+
   const timestampNow = (new Date()).toISOString()
+  const docRef = firebase
+    .firestore()
+    .collection(collectionName)
+    .doc(docName)
   const newDoc = await docRef
     .set({
       ...defaultValue,
@@ -96,16 +146,17 @@ const getOrCreateDoc = async ({ collectionName, docName, defaultValue }) => {
 
 export const getOrCreateDatasetWorkSession = (datasetName) => {
   const defaultValue = {
-    state: { [STORAGE_KEYS.processedUrlsListCurrIdx] : 0 },
+    state: { processedUrlsListCurrIdx : 0 },
     datasetName: datasetName,
   }
 
   return getOrCreateDoc({ collectionName: COLLECTION_KEYS.workSessions, docName: datasetName, defaultValue })
 }
+
 export const getOrCreateUserSettings = async (userProfile) => {
   const defaultValue = await makeDefaultUserSettings()
 
-  return getOrCreateDoc({ collectionName: COLLECTION_KEYS.userSettings, docName: userProfile.email, defaultValue })
+  return getOrCreateDoc({ collectionName: COLLECTION_KEYS.userSettings, docName: userProfile.email, defaultValue }) 
 }
 
 const listCollection = async (collectionName) => {
@@ -129,35 +180,21 @@ const listCollection = async (collectionName) => {
 export const listWorkSessions = () => listCollection(COLLECTION_KEYS.workSessions)
 export const listDatasets = () => listCollection(COLLECTION_KEYS.datasets)
 
-export const getProcessedUrls = async (user) => {
-  const processedUrlDocuments = await _getProcessedUrls(user)
+export const getDataset = datasetName => getDoc({ collectionName: COLLECTION_KEYS.datasets, docName: datasetName })
 
-  return processedUrlDocuments.map(doc => {
-    return doc.data()
-  })
-}
-
-export const getProcessedUrlsData = async (user) => {
-  const processedUrlDocuments = await _getProcessedUrlsData(user)
-
-  return processedUrlDocuments.map(doc => {
-    return doc.data()
-  })
-}
-
-export const getProcessedUrlsDataAsHashMap = async (user) => {
-  const processedUrlDocuments = await _getProcessedUrlsData(user)
+export const getDatasetUrl = async (datasetName, position) => {
   
-  const results = {}
-  processedUrlDocuments.forEach(doc => {
-    if (doc.exists) {
-      results[decodeProcessedUrlKey(doc.id)] = doc.data()
-    }
+  const results = await queryDoc({
+    collectionName: COLLECTION_KEYS.datasetUrls(datasetName),
+    where: {
+      path: 'position',
+      value: position,
+    },
+    limit: 1,
   })
-  
-  return results
-}
 
+  return results[0].data
+}
 
 export const saveProcessedUrlData = async (processedUrl, processedUrlData, user) => {
   init()
@@ -165,9 +202,9 @@ export const saveProcessedUrlData = async (processedUrl, processedUrlData, user)
   const newProcessedUrlData = await firebase
     .firestore()
     .collection(COLLECTION_KEYS.processedUrlsData(user.settings.activeWorkSessionId))
-    .doc(makeProcessedUrlKey(processedUrl))
+    .doc(String(processedUrl.position))
     .set({
-      url: processedUrl,
+      url: processedUrl.pageUrl,
       metadata: processedUrlData,
     })
 
@@ -180,53 +217,112 @@ export const saveProcessedUrl = async (processedUrl, processedUrlData, user) => 
   const newProcessedUrlData = await firebase
     .firestore()
     .collection(COLLECTION_KEYS.processedUrls(user.settings.activeWorkSessionId))
-    .doc(makeProcessedUrlKey(processedUrl))
+    .doc(String(processedUrl.position))
     .set({
-      url: processedUrl,
+      url: processedUrl.pageUrl,
       data: processedUrlData,
     })
 
   return newProcessedUrlData
 }
 
-const _getProcessedUrlsData = async (user) => {
+export const getProcessedUrl = async (datasetUrl, user) => {
   init()
 
-  const userActiveWorkSessionId = user.settings.activeWorkSessionId
-  const userProcessedUrlsData = await firebase
+  const processedUrlDataDoc = await firebase
     .firestore()
-    .collection(COLLECTION_KEYS.processedUrlsData(userActiveWorkSessionId))
+    .collection(COLLECTION_KEYS.processedUrls(user.settings.activeWorkSessionId))
+    .doc(String(datasetUrl.position))
     .get()
 
-  if (userProcessedUrlsData.empty) {
-    return []
+  if (processedUrlDataDoc.exists) {
+    return {
+      id: processedUrlDataDoc.id,
+      data: processedUrlDataDoc.data(),
+    }
   }
 
-  return userProcessedUrlsData.docs
+  return null
 }
 
-const _getProcessedUrls = async (user) => {
+export const incrementProcessedUrls = async (user) => {
   init()
-
-  const userActiveWorkSessionId = user.settings.activeWorkSessionId
-  const userProcessedUrls = await firebase
+  
+  const datasetWorkSessionRef = await firebase
     .firestore()
-    .collection(COLLECTION_KEYS.processedUrls(userActiveWorkSessionId))
-    .get()
+    .collection(COLLECTION_KEYS.workSessions)
+    .doc(user.settings.activeWorkSessionId)
 
-  if (userProcessedUrls.empty) {
-    return []
+  const datasetWorkSessionSnapshot = await datasetWorkSessionRef.get()
+
+  if (!datasetWorkSessionSnapshot.data().processedUrlsCount) {
+    await datasetWorkSessionRef.update({
+      processedUrlsCount: 1,
+    })
+  } else {
+    await datasetWorkSessionRef.update({
+      processedUrlsCount: firebase.firestore.FieldValue.increment(1),
+    })
   }
 
-  return userProcessedUrls.docs
+  return (await datasetWorkSessionRef.get()).data().processedUrlsCount
 }
 
-export const getAllUrls = async (datasetName) => {
+export const incrementMarkedImagesCountCount = async (user, newCount) => {
+  init()
+  
+  const datasetWorkSessionRef = await firebase
+    .firestore()
+    .collection(COLLECTION_KEYS.workSessions)
+    .doc(user.settings.activeWorkSessionId)
+
+  const datasetWorkSessionSnapshot = await datasetWorkSessionRef.get()
+
+  if (!datasetWorkSessionSnapshot.data().markedImagesCount) {
+    await datasetWorkSessionRef.update({
+      markedImagesCount: newCount,
+    })
+  } else {
+    await datasetWorkSessionRef.update({
+      markedImagesCount: firebase.firestore.FieldValue.increment(newCount),
+    })
+  }
+
+  return (await datasetWorkSessionRef.get()).data().markedImagesCount
+}
+
+export const getWorkSessionCounts = async (user) => {
+  init()
+  
+  const datasetWorkSessionRef = await firebase
+    .firestore()
+    .collection(COLLECTION_KEYS.workSessions)
+    .doc(user.settings.activeWorkSessionId)
+
+
+  const data = (await datasetWorkSessionRef.get()).data()
+
+  return {
+    processedUrlsCount: data.processedUrlsCount || 0,
+    markedImagesCount: data.markedImagesCount || 0,
+  }
+}
+
+export const getNextUrlsForAnnotation = async (datasetName, { limit, startAtPosition } = { limit: 10, startAtPosition: 0 }) => {
   init()
 
-  const allUrls = await firebase
+  let query = firebase
     .firestore()
     .collection(COLLECTION_KEYS.datasetUrls(datasetName))
+
+  if (startAtPosition) {
+    query = query
+      .orderBy('position')
+      .startAt(startAtPosition)
+      .limit(limit)
+  }
+
+  const allUrls = await query
     .get()
 
   let result = []
@@ -236,7 +332,7 @@ export const getAllUrls = async (datasetName) => {
 
   const allUrlsFromFirebase = result
     .filter(doc => doc.exists)
-    .map(doc => doc.data().pageUrl)
+    .map(doc => doc.data())
 
   return allUrlsFromFirebase
 }
@@ -286,7 +382,7 @@ const updateDatasetWorkSessionState = async (datasetName, workSessionStateUpdate
 
 export const setProcessedUrlsCurrIdx = async (user, newCurrIdx) => {
   return await updateDatasetWorkSessionState(user.settings.activeWorkSessionId, {
-    [STORAGE_KEYS.processedUrlsListCurrIdx]: newCurrIdx,
+    processedUrlsListCurrIdx: newCurrIdx,
   })
 }
 
@@ -300,8 +396,7 @@ export const updateUserActiveWorkSession = async (user, newWorkSessionId) => {
 
   await userSettingsDoc.set({
     activeWorkSessionId: newWorkSessionId,
-  }, { merge: true })
-
+  },{ merge: true })
 
   const updatedUserSettingsDoc = await userSettingsDoc.get()
 

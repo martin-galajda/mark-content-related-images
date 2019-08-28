@@ -46,7 +46,7 @@ export class AuthenticatedPage extends React.Component {
               Active dataset: {this.props.user.settings.activeWorkSessionId}
             </LineItem>
             <LineItem>
-              Processed {this.props.userUrlsForProcessing.getProcessedUrlsLength()} URL-s out of {this.props.userUrlsForProcessing.getAllUrlsLength()}.
+              Processed {this.props.navigationInfo.processedUrlsCount} URL-s out of {this.props.navigationInfo.allUrlsCount}.
             </LineItem>
 
           </MetadataConainer>
@@ -72,6 +72,6 @@ AuthenticatedPage.propTypes = {
     email: PropTypes.string.isRequired,
     picture: PropTypes.string.isRequired,
   }),
-  userUrlsForProcessing: PropTypes.any,
+  navigationInfo: PropTypes.any,
   user: PropTypes.any,
 }

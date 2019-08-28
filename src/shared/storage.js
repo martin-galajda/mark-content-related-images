@@ -108,16 +108,18 @@ export async function setExtensionIsActive(isActive) {
   })
 }
 
-export async function getAllUrls() {
-  return await getFromStorage({
-    key: STORAGE_KEYS.allUrls, 
+export async function setCanNavigateToDifferentURL(canNavigate) {
+  return await setInStorage({
+    [STORAGE_KEYS.canNavigateToDifferentURL]: canNavigate,
   })
 }
 
-export async function setAllUrls(allUrls) {
-  await setInStorage({
-    [STORAGE_KEYS.allUrls]: allUrls, 
+export async function getCanNavigateToDifferentURL() {
+  const canNavigate = await getFromStorage({
+    key: STORAGE_KEYS.canNavigateToDifferentURL,
   })
+
+  return canNavigate
 }
 
 export async function clearHighlightedElements() {
@@ -159,18 +161,6 @@ export async function setAccessToken(token) {
 export async function getAccessToken() {
   return await getFromStorage({
     key: STORAGE_KEYS.accessToken,
-  })
-}
-
-export async function setProcessedUrlsCurrIdx(newCurrIdx) {
-  return await setInStorage({
-    [STORAGE_KEYS.processedUrlsListCurrIdx]: newCurrIdx,
-  })
-}
-
-export async function getProcessedUrlsCurrIdx() {
-  return await getFromStorage({
-    key: STORAGE_KEYS.processedUrlsListCurrIdx,
   })
 }
 
